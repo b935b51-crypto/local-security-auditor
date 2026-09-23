@@ -1,4 +1,6 @@
-# Architecture — Phase 6 baseline
+# Architecture — Phase 7 baseline
+
+Phase 7 adds a trusted CLI and orchestrator. A `ScanRequest` enters bounded discovery, ordered deterministic scanners, correlation/risk, optional AI review, and one immutable `ScanReport`. Console, JSON, SARIF, and HTML renderers use an explicit sanitized public view of that report. Renderers never open the target. See [CLI](CLI.md) and [Reporting](REPORTING.md).
 
 ## Invariant and data flow
 
@@ -6,7 +8,7 @@ Phase 6 adds an optional AI advisory layer after deterministic findings and corr
 
 Phase 5 adds a bounded deterministic correlation layer after normalized scanner results. It creates separate graph, grouping, candidate, and risk-priority annotations without target reads or mutation of original findings. See [Correlation](CORRELATION.md) and [Risk Engine](RISK_ENGINE.md).
 
-**TARGET CODE MUST NEVER BE EXECUTED AUTOMATICALLY.** The selected repository is untrusted input. The core runs offline; only explicit, separate adapters may access a network. Phase 1 implements bounded discovery/classification; Phases 2–3 add local secret, SAST, and behavior plugins. Phase 4 adds static dependency inventory plus optional exact-version OSV lookup and tool-local cache. No report pipeline runs yet.
+**TARGET CODE MUST NEVER BE EXECUTED AUTOMATICALLY.** The selected repository is untrusted input. The core runs offline; only explicit, separate adapters may access a network. Phase 1 implements bounded discovery/classification; Phases 2–3 add local secret, SAST, and behavior plugins. Phase 4 adds static dependency inventory plus optional exact-version OSV lookup and tool-local cache.
 
 ```text
 CLI/UI -> policy + bounded discovery -> classified FileArtifact
@@ -48,21 +50,21 @@ Correlation depends on core contracts and result data; core and scanners do not 
 
 `ScanTarget`, `ScanSession`, `ScanProfile`, `FileArtifact`, `LanguageInfo`, `ScannerMetadata`, `Finding`, `Evidence`, `Location`, `Severity`, `Confidence`, `RuleReference`, `DependencyArtifact`, `VulnerabilityReference`, `Remediation`, `ScannerResult`, and `ReportSummary` are in `core/models.py`. `Scanner` and `AsyncScanner` protocols are in `core/contracts.py`. A future adapter runner normalizes synchronous, asynchronous, external-tool, and vulnerability lookup results to `ScannerResult`.
 
-`discovery/service.py` composes root validation, policy, bounded traversal, prefix sniffing, and pure classification. `discovery/content.py` is the bounded reopen boundary for admitted artifacts. `scanners/secrets/` filters raw-free candidates into normalized findings. `scanners/sast/` uses a bounded Python AST frontend and intraprocedural taint engine; `scanners/behavior/` uses the same static Python frontend plus bounded line rules for other languages. `scanners/dependencies/` consumes admitted manifests and lockfiles, reconciles versions, queries an optional `VulnerabilityProvider`, and returns normalized findings. Its OSV adapter and cache are leaf modules; parsers and core models never import network code. [Discovery](DISCOVERY.md), [Secret Scanner](SECRET_SCANNER.md), [SAST](SAST.md), [Behavior Scanner](BEHAVIOR_SCANNER.md), and [Dependency Scanner](DEPENDENCY_SCANNER.md) specify semantics and limits. The package still has no scanner registry, orchestrator, renderer, or CLI command.
+`discovery/service.py` composes root validation, policy, bounded traversal, prefix sniffing, and pure classification. `discovery/content.py` is the bounded reopen boundary for admitted artifacts. `scanners/secrets/` filters raw-free candidates into normalized findings. `scanners/sast/` uses a bounded Python AST frontend and intraprocedural taint engine; `scanners/behavior/` uses the same static Python frontend plus bounded line rules for other languages. `scanners/dependencies/` consumes admitted manifests and lockfiles, reconciles versions, queries an optional `VulnerabilityProvider`, and returns normalized findings. Its OSV adapter and cache are leaf modules; parsers and core models never import network code. `orchestrator/` composes these layers in a fixed order and isolates scanner failures. `reporting/` consumes the immutable report, with whitelist serialization and a separate safe output writer. `cli/` maps trusted argv to `ScanRequest` and stable exit codes. No scanner imports the CLI or report modules. [Discovery](DISCOVERY.md), [Secret Scanner](SECRET_SCANNER.md), [SAST](SAST.md), [Behavior Scanner](BEHAVIOR_SCANNER.md), and [Dependency Scanner](DEPENDENCY_SCANNER.md) specify prior phase semantics.
 
 ## Configuration and profiles
 
 Hierarchy: safe built-in defaults → optional project `security-auditor.toml` → trusted operator CLI overrides. Hard limits and trust restrictions sit outside this hierarchy and cannot be raised by target data. A config found in the scanned target is untrusted: it may narrow coverage/limits but cannot enable network, AI, external executables, symlink traversal, or writes. `load_config` still parses only an explicitly operator-selected TOML file; no automatic target config loading exists. Future merge logic must preserve these rules.
 
-`quick`: secrets, simple patterns, manifests. `standard`: quick plus SAST, config, dependencies, behavior. `deep`: standard plus dataflow and correlation; optional AI only after separate opt-in. A profile is a coverage intent, not permission to relax resource caps. `--offline` remains meaningful for all profiles.
+`quick`: discovery, secrets, behavior, and dependency inventory; Python SAST and correlation are explicitly disabled. `standard`: all current deterministic scanners plus correlation/risk. `deep`: the same current deterministic implementation with optional AI only after `--ai`; deeper analysis rules and larger budgets are future work. A profile is a coverage intent, not permission to relax resource caps. `--offline` remains meaningful for all profiles.
 
 Discovery defaults are configurable: version-control `.gitignore` is separate from security scan excludes. `respect_gitignore=false` by default because `.env` may contain security-relevant data. Explicit includes override ordinary exclusions but never root boundaries or hard caps. Phase 1 pattern precedence and its bounded root-level `.gitignore` subset are in [Discovery](DISCOVERY.md).
 
-## Reporting and CLI direction
+## Reporting and CLI
 
-Future CLI: `security-auditor scan <path> [--profile quick|standard|deep] [--format console|json|sarif|html] [--output PATH] [--include GLOB] [--exclude GLOB] [--no-ai] [--offline]`. Phase 6 does not expose it.
+The packaged entry point is `security-auditor scan <path>`. The CLI accepts explicit profile, format, output, offline/AI, trusted config, fail threshold, and verbosity. It does not load target config implicitly. Output paths are relative to the operator's current directory, and writing requires an existing safe parent. See [CLI](CLI.md).
 
-Scanner → Finding → Finding Store → Reporter. Console is a concise, terminal-safe view. JSON is a versioned machine contract for CI, Codex, and GUI. SARIF maps rules, locations, severity, and fingerprints for GitHub/IDE/CI; unsupported fields remain in versioned properties. HTML is inert: escape all source-derived text, no scanned-content scripts or event handlers, restrictive CSP, no remote assets by default. Reports include scanner coverage, skips, failures, and incomplete status. JSON/SARIF/HTML cannot serialize raw secret values.
+Scanner → normalized Finding → correlation/risk and optional AI annotations → canonical `ScanReport` → whitelist serializer → Console/JSON/SARIF/HTML. JSON is the versioned machine contract for CI, Codex, and future GUI. SARIF maps deterministic rules, locations, severity, and fingerprints. HTML is inert and uses no JavaScript or remote assets. Coverage, skipped files, unavailable provider data, and truncation remain explicit. Renderer failure does not rescan the target. See [Reporting](REPORTING.md).
 
 ## Test strategy
 

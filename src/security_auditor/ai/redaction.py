@@ -16,6 +16,7 @@ _ASSIGNMENT = re.compile(
 )
 _PROVIDER_TOKEN = re.compile(
     r"gh[pousr]_[A-Za-z0-9]{36}|(?:AKIA|ASIA)[A-Z0-9]{16}|"
+    r"AIza[A-Za-z0-9_-]{35}|"
     r"sk_(?:live|test)_[A-Za-z0-9]{24,128}|xox[baprs]-[A-Za-z0-9-]{20,128}|"
     r"glpat-[A-Za-z0-9_-]{20,128}"
 )

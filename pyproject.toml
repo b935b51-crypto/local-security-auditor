@@ -9,5 +9,15 @@ dependencies = []
 [project.optional-dependencies]
 gemini = ["google-genai>=2.25.0,<3.0.0"]
 
+[project.scripts]
+security-auditor = "security_auditor.cli.main:main"
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/security_auditor"]
+
 [tool.uv]
-package = false
+package = true

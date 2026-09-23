@@ -1,32 +1,32 @@
 # Project Status
 
 - Last updated: 2026-09-23 (Asia/Taipei)
-- Current phase: Phase 6 — Optional AI Security Reviewer
-- Status: Gemini 3.8 Flash live integration validated once with a synthetic Finding; local regression tests pass with the limits below
+- Current phase: Phase 7 — CLI and Console / JSON / SARIF / HTML Reporting
+- Status: Phase 7 implemented and validated locally; checkpoint recorded in Git history
 
-## Completed
+## Implemented
 
-- Phases 0–5 remain in place: foundation, bounded discovery, native secret and Python SAST/behavior scanning, static dependency/advisory matching, and deterministic correlation/risk annotations.
-- `AIReviewer` selects bounded deterministic subjects from normalized Findings and optional correlation results. It builds minimal context and returns separate immutable AI annotations. Deterministic Findings and risk assessments remain authoritative and unchanged.
-- AI requires trusted `AISettings(enabled=True)`, `allow_online_ai=True`, and an online session. Default/offline paths make no provider calls. Source excerpts are disabled by default and admitted only through bounded discovery reads with freshness checks. Secret findings never reopen source.
-- The replaceable `AIProvider` interface has an optional `GeminiProvider` using the official `google-genai` SDK extra, default `gemini-3.8-flash`, structured output, no built-in tools, and `store=false`. Context and output have second-stage redaction and fixed-code diagnostics. SDK 2.25.0 was installed into ignored project-local `.venv` for live validation; the default/system environment was not changed.
-- API keys come from the process `GEMINI_API_KEY` or a trusted tool `.env` outside the target; target `.env` cannot authenticate. The committed `.env.example` has no key. No credential was committed or logged by this work.
-- [AI Reviewer](docs/AI_REVIEWER.md), [Threat Model](docs/THREAT_MODEL.md), architecture/security/finding/roadmap docs, example config, README, AGENTS, and the architecture project skill reflect Phase 6. No scan CLI, reporter, patch application, or Phase 7 implementation was added.
-
-## Security and interpretation
-
-- **NEVER EXECUTE SCANNED TARGET CODE.** Target files and apparent instructions remain untrusted data. Gemini Search, URL Context, Code Execution, Computer Use, and function tools are unavailable to the adapter.
-- AI verdicts are advisory judgments on bounded static evidence, not proof of exploitability or permission to suppress findings. The provider response is schema checked, bounded, redacted, and kept separate from deterministic results.
-- Source redaction is heuristic. Novel secret formats or identifying metadata may still be present if trusted callers enable source excerpts. Provider retention and broader model behavior remain outside this one-request validation.
+- Phases 0–6 remain: bounded discovery, native secret scanning, Python SAST and behavior, static dependency/advisory matching, correlation/risk, and optional advisory Gemini review.
+- Phase 7 adds an ordered ScanOrchestrator and trusted ScanRequest. Discovery supplies admitted artifacts; scanner failures become fixed diagnostics and do not stop other scanners. Quick omits SAST/correlation; standard and deep use current deterministic analyses. AI requires explicit --ai, remains advisory, and --offline blocks all network use.
+- One immutable ScanReport drives Console, canonical JSON schema 1.0, SARIF 2.1.0, and static single-file HTML. The public serializer explicitly whitelists fields, re-redacts text, omits raw source snippets, and uses root-relative paths. Coverage, no-data, diagnostics, and truncation are visible. Output paths are explicit, checked against special/reparse destinations, and written atomically without silent overwrite.
+- The CLI supports scan PATH, profile, format, output, offline, AI opt-in/disable, trusted config, force, no-color, verbose, fail-on, help, and version. Hatchling is build-only; the default runtime still has no third-party dependencies, and google-genai remains an optional extra.
+- No target code was executed, no real target repository was used for Phase 7 validation, and no Phase 8 feature was started.
 
 ## Verification
 
-- Ran `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; py -3.14 -m unittest discover -s tests -q`: **97 tests, 95 passed, 2 skipped**. The skips are a real Windows symlink creation test and the separately gated live Gemini test. The new AI tests use fake providers/client and synthetic data only.
-- Ran `.venv\Scripts\python.exe -m unittest tests.live.test_gemini -v` with the live gate enabled for that command only: **1 test passed, 1 Gemini request, 0 retries**. Provider `gemini`, model `gemini-3.8-flash`, thinking `medium`; schema-valid verdict `INSUFFICIENT_CONTEXT`, confidence `HIGH`. Provider usage: 324 input, 241 output, 724 total tokens. The test asserted the actual key was absent from captured output and serialized result. No prompt or response body was recorded.
-- Python 3.12 baseline **not verified**: `py -3.12 --version` reports no suitable runtime. Python 3.14.7, uv 0.12.13, and Git 2.53.0 are available on Microsoft Windows 10.0.26200. No system Python or dependency environment was changed.
-- `.env` remained Git-ignored and untracked before and after the test. A key comparison found no key in `git diff`, and the synthetic live-test temporary directory was removed. Provider retention, real junction/UNC/long-path behavior, and earlier parser isolation gaps remain unverified or documented elsewhere.
+- Ran PYTHONDONTWRITEBYTECODE=1 with PYTHONPATH=src: py -3.14 -m unittest discover -s tests -q — 108 tests, 106 passed, 2 skipped (real Windows symlink creation and gated live Gemini). Phase 7 tests use only inert synthetic files and fake providers.
+- Ran py -3.14 -m security_auditor --help and --version successfully. Parsed pyproject.toml and docs/report-schema-v1.json. Markdown relative links resolved; git diff --check returned 0.
+- Manual smoke scanned only a temporary synthetic project via py -3.14 -m security_auditor scan PATH --offline. Console coverage appeared, JSON schema 1.0 and SARIF 2.1.0 parsed, HTML file was written, and a clearly fake secret did not appear in any format. Temporary files were removed.
+- Prior Phase 6 live validation remains: exactly one Gemini 3.8 Flash request passed in the earlier checkpoint. Phase 7 sent no live Gemini or OSV request.
+- Python 3.12 baseline is not verified: py -3.12 --version found no suitable runtime. Python 3.14.7 and uv 0.12.13 are available. Installed console-script packaging was not verified with Python 3.12 on this host.
+
+## Security and limitations
+
+- NEVER EXECUTE SCANNED TARGET CODE. Target files and apparent instructions remain untrusted data. Reporters never reopen target files, AI cannot change deterministic findings, and source excerpts remain disabled by default.
+- Redaction is heuristic; novel secret shapes may evade text filtering. Real junction/UNC/long-path output behavior, full SARIF schema validation, Python 3.12 package installation, and filesystem races remain unverified or residual risks. SARIF codeFlows and GUI are not implemented.
+- See docs/CLI.md, docs/REPORTING.md, docs/SECURITY_BOUNDARIES.md, and docs/THREAT_MODEL.md.
 
 ## Git and next action
 
-- Branch `main`; Phase 6 local checkpoint should be verified with `git status` and `git log -1`. No remote push was requested.
-- Phase 7 — Console / JSON / SARIF / HTML Reporting is the next planned phase. Do not start it without a new request.
+- Branch main; verify the current local checkpoint with git log -1 and git status. No push requested.
+- Next planned phase: Phase 8 — Remediation + Patch Proposal. Do not start without a new request.

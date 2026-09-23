@@ -8,6 +8,7 @@ import unicodedata
 
 _PATH_TOKENS = tuple(re.compile(pattern) for pattern in (
     r"gh[pousr]_[A-Za-z0-9]{36}", r"(?:AKIA|ASIA)[A-Z0-9]{16}",
+    r"AIza[A-Za-z0-9_-]{35}",
     r"sk_(?:live|test)_[A-Za-z0-9]{24,128}",
     r"xox[baprs]-[A-Za-z0-9-]{20,128}", r"glpat-[A-Za-z0-9_-]{20,128}",
 ))

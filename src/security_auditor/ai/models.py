@@ -101,6 +101,7 @@ class AIReviewSummary:
     estimated_input_tokens: int
     output_tokens: int
     diagnostics: tuple[AIDiagnostic, ...]
+    eligible: int = 0
 
 
 @dataclass(frozen=True, slots=True)

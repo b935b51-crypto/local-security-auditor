@@ -2,16 +2,16 @@
 
 ## Status
 
-No active handoff. Phase 6 Gemini 3.8 Flash live integration was validated once with a synthetic Finding. Verify the exact local checkpoint with `git status` and `git log -1`.
+No active handoff. Phase 7 CLI, orchestration, and secure reporting are implemented. Verify the exact checkpoint and working tree with git log -1 and git status.
 
 ## Verified state
 
-- AI is disabled by default and offline always blocks provider calls. Findings and risk assessments remain immutable; target code is never executed.
-- The Gemini adapter is optional and uses `google-genai` only after trusted opt-in. Local `.venv` has SDK 2.25.0; one `medium`-thinking request with no tools produced a schema-valid advisory result. The live test used one request, no retries, and did not print the key or response body.
-- Python 3.14.7 unittest after live gate removal: 97 tests, 95 passed, 2 skipped (real Windows symlink creation and gated live Gemini). The separately gated live test passed once. Python 3.12 remains unavailable locally.
-- Target `.env` never supplies a key. Source excerpts are off by default; heuristic redaction has residual risk if enabled. See [AI Reviewer](../docs/AI_REVIEWER.md) and [Threat Model](../docs/THREAT_MODEL.md).
-- Check current working tree and history before new work. No push was requested.
+- Scanned target code is never executed. Discovery remains the target file boundary; four renderers consume one immutable ScanReport and never reopen the target.
+- JSON schema 1.0, Console, SARIF 2.1.0, and static HTML render through a whitelist view with output redaction, explicit coverage, and truncation. CLI output files require explicit paths and use conservative atomic writes.
+- The full offline suite ran on Python 3.14.7: 108 tests, 106 passed, 2 skipped. A separate synthetic manual smoke passed for all four formats. No Phase 7 live Gemini or OSV calls were made.
+- The earlier Phase 6 Gemini 3.8 Flash live validation remains one successful request. The optional SDK is isolated in ignored .venv. Python 3.12 is unavailable here and package installation under that baseline remains unverified.
+- AI stays advisory and opt-in. Heuristic redaction, Windows junction/UNC/long-path output behavior, SARIF codeFlows, and full official SARIF schema validation remain limitations. See ../docs/CLI.md and ../docs/REPORTING.md.
 
-## Recommended Next Action
+## Recommended next action
 
-Read AGENTS, PROJECT_STATUS, security boundaries, AI reviewer docs, and project skills; verify Git and tests. Phase 7 — Console / JSON / SARIF / HTML Reporting begins only on a new user request.
+Read AGENTS.md, PROJECT_STATUS.md, security boundaries, reporting docs, project skills, Git state, and current tests. Phase 8 — Remediation + Patch Proposal is next only on a new user request.

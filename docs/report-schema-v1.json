@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-security-auditor.invalid/schemas/report-v1.json",
+  "title": "Local Security Auditor canonical report 1.0",
+  "type": "object",
+  "required": ["schema_version", "tool", "scan", "coverage", "summary", "diagnostics", "findings", "finding_groups", "attack_paths", "risk_assessments", "ai_reviews", "report_truncated"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "tool": {"type": "object", "required": ["name", "version"]},
+    "scan": {"type": "object", "required": ["scan_id", "started_at", "completed_at", "profile", "offline"]},
+    "coverage": {"type": "object", "required": ["overall", "components", "reasons", "skipped_files"], "properties": {"overall": {"enum": ["COMPLETE", "PARTIAL", "ABORTED", "FAILED"]}, "components": {"type": "array"}, "reasons": {"type": "array"}, "skipped_files": {"type": "integer", "minimum": 0}}},
+    "summary": {"type": "object", "required": ["counts", "dependency", "ai_status", "external_services"]},
+    "diagnostics": {"type": "array"},
+    "findings": {"type": "array"},
+    "finding_groups": {"type": "array"},
+    "attack_paths": {"type": "array"},
+    "risk_assessments": {"type": "array"},
+    "ai_reviews": {"type": "array"},
+    "report_truncated": {"type": "boolean"}
+  },
+  "additionalProperties": true
+}

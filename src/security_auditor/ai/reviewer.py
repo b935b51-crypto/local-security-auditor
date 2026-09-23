@@ -76,11 +76,13 @@ class AIReviewer:
                allow_online_ai: bool = False,
                tool_config_dir: Path | None = None) -> AIReviewBatch:
         notes: Counter[str] = Counter()
+        available = 0
 
         def finish(status: AIReviewStatus, selected: int, reviews=(), requests=0,
                    estimate=0, output=0) -> AIReviewBatch:
             summary = AIReviewSummary(status, selected, len(reviews), requests, estimate,
-                                      output, tuple(AIDiagnostic(k, v) for k, v in sorted(notes.items())))
+                                      output, tuple(AIDiagnostic(k, v) for k, v in sorted(notes.items())),
+                                      available)
             return AIReviewBatch(tuple(sorted(reviews, key=lambda r: (r.subject_type.value,
                                                                       r.subject_id))), summary)
 
