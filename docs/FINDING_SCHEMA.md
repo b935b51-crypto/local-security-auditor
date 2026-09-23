@@ -32,6 +32,8 @@ Suppressions are explicit reviewed records keyed by fingerprint or namespaced ru
 
 Phase 5 consumes these immutable findings and emits separate graph edges, PRIMARY/SUPPORTING groups, attack-path candidates, and risk assessments. It never rewrites a Finding's original severity, confidence, or CVSS. It reports fingerprint collisions and malformed inputs instead of treating them as safe equivalence. [Correlation](CORRELATION.md) and [Risk Engine](RISK_ENGINE.md) define the annotation contract.
 
+Phase 6 `AIReviewResult` is a separate immutable annotation keyed by subject ID and redacted review-input fingerprint. It has its own verdict and confidence; no AI field is added to or written back into `Finding`. See [AI Reviewer](AI_REVIEWER.md).
+
 ## Redaction and storage
 
 Secret findings include type, safe location, and masked evidence such as `[REDACTED API KEY]`. Exact values, reversible encodings, or public hashes of secret values are forbidden in `Finding`, logs, JSON, SARIF, HTML, console, suppression keys, and AI context. The normalization gate rechecks all text fields, including descriptions and diagnostics, before storage/reporting. Because a generic schema cannot prove arbitrary text safe, scanners must construct evidence through future redaction helpers and output gates must fail closed on unsafe content. Do not persist raw scanner output.

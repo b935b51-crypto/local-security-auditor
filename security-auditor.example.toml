@@ -85,3 +85,24 @@ max_edges = 30000
 max_attack_paths = 1000
 max_seconds = 300
 proximity_lines = 5
+
+[ai]
+enabled = false # requires a separate trusted opt-in at review time
+provider = "gemini"
+model = "gemini-3.8-flash"
+thinking_level = "medium"
+include_source = false
+max_reviews = 20
+max_requests = 22
+max_context_chars = 4000
+max_total_context_chars = 40000
+max_source_lines = 12
+max_source_file_bytes = 65536
+max_related_findings = 4
+max_trace_steps = 8
+max_output_tokens = 2048
+max_total_output_tokens = 20000
+max_estimated_input_tokens = 20000
+max_seconds = 180
+timeout_seconds = 20
+max_retries = 1

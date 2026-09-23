@@ -85,6 +85,15 @@ CORRELATION_HARD_CAPS = {
     "max_attack_paths": 10000, "max_seconds": 3600,
     "proximity_lines": 20,
 }
+AI_HARD_CAPS = {
+    "max_reviews": 100, "max_requests": 200,
+    "max_context_chars": 16000, "max_total_context_chars": 200000,
+    "max_source_lines": 40, "max_source_file_bytes": 256 * 1024,
+    "max_related_findings": 20, "max_trace_steps": 30,
+    "max_output_tokens": 8192, "max_total_output_tokens": 100000,
+    "max_estimated_input_tokens": 100000, "max_seconds": 1800,
+    "timeout_seconds": 120, "max_retries": 2,
+}
 
 
 def _validate_limits(instance: object, caps: dict[str, int]) -> None:
@@ -205,6 +214,42 @@ class CorrelationLimits:
 
 
 @dataclass(frozen=True, slots=True)
+class AISettings:
+    enabled: bool = False
+    provider: str = "gemini"
+    model: str = "gemini-3.8-flash"
+    thinking_level: str = "medium"
+    include_source: bool = False
+    max_reviews: int = 20
+    max_requests: int = 22
+    max_context_chars: int = 4000
+    max_total_context_chars: int = 40000
+    max_source_lines: int = 12
+    max_source_file_bytes: int = 64 * 1024
+    max_related_findings: int = 4
+    max_trace_steps: int = 8
+    max_output_tokens: int = 2048
+    max_total_output_tokens: int = 20000
+    max_estimated_input_tokens: int = 20000
+    max_seconds: int = 180
+    timeout_seconds: int = 20
+    max_retries: int = 1
+
+    def __post_init__(self) -> None:
+        if type(self.enabled) is not bool or type(self.include_source) is not bool:
+            raise ValueError("AI flags must be boolean")
+        if self.provider != "gemini" or self.model not in {"gemini-3.8-flash", "gemini-3.7-flash"}:
+            raise ValueError("unsupported AI provider or model")
+        if self.thinking_level not in {"low", "medium", "high"}:
+            raise ValueError("unsupported AI thinking level")
+        for name, maximum in AI_HARD_CAPS.items():
+            value = getattr(self, name)
+            minimum = 0 if name == "max_retries" else 1
+            if type(value) is not int or not minimum <= value <= maximum:
+                raise ValueError(f"{name} outside safe range")
+
+
+@dataclass(frozen=True, slots=True)
 class DiscoveryLimits:
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE
     max_file_count: int = DEFAULT_MAX_FILE_COUNT
@@ -235,13 +280,14 @@ class AuditConfig:
     dependencies: DependencyLimits = DependencyLimits()
     vulnerability: VulnerabilityLimits = VulnerabilityLimits()
     correlation: CorrelationLimits = CorrelationLimits()
+    ai: AISettings = AISettings()
 
 
 def load_config(path: Path) -> AuditConfig:
     """Load operator-selected TOML; rejects unknown keys and unsafe limit increases."""
     with path.open("rb") as stream:
         raw = tomllib.load(stream)
-    if set(raw) - {"scan", "discovery", "secrets", "sast", "behavior", "dependencies", "vulnerability", "correlation"}:
+    if set(raw) - {"scan", "discovery", "secrets", "sast", "behavior", "dependencies", "vulnerability", "correlation", "ai"}:
         raise ValueError("unknown top-level config key")
     scan = raw.get("scan", {})
     discovery = raw.get("discovery", {})
@@ -251,7 +297,8 @@ def load_config(path: Path) -> AuditConfig:
     dependencies = raw.get("dependencies", {})
     vulnerability = raw.get("vulnerability", {})
     correlation = raw.get("correlation", {})
-    if any(not isinstance(table, dict) for table in (scan, discovery, secrets, sast, behavior, dependencies, vulnerability, correlation)):
+    ai = raw.get("ai", {})
+    if any(not isinstance(table, dict) for table in (scan, discovery, secrets, sast, behavior, dependencies, vulnerability, correlation, ai)):
         raise ValueError("invalid config table")
     if set(scan) - {"profile", "offline"} or set(discovery) - {
         "include", "exclude", "default_exclude", "respect_gitignore",
@@ -275,6 +322,8 @@ def load_config(path: Path) -> AuditConfig:
         raise ValueError("unknown vulnerability config key")
     if set(correlation) - set(CORRELATION_HARD_CAPS) - {"enabled"}:
         raise ValueError("unknown correlation config key")
+    if set(ai) - set(AI_HARD_CAPS) - {"enabled", "provider", "model", "thinking_level", "include_source"}:
+        raise ValueError("unknown ai config key")
     profile = ScanProfile(scan.get("profile", "standard"))
     offline = scan.get("offline", True)
     respect_gitignore = discovery.get("respect_gitignore", False)
@@ -328,11 +377,14 @@ def load_config(path: Path) -> AuditConfig:
     correlation_defaults = CorrelationLimits()
     correlation_values = {key: correlation.get(key, getattr(correlation_defaults, key))
                           for key in CorrelationLimits.__dataclass_fields__}
+    ai_defaults = AISettings()
+    ai_values = {key: ai.get(key, getattr(ai_defaults, key))
+                 for key in AISettings.__dataclass_fields__}
     return AuditConfig(
         profile=profile, offline=offline, respect_gitignore=respect_gitignore,
         limits=DiscoveryLimits(**values), secrets=SecretLimits(**secret_values),
         sast=SASTLimits(**sast_values), behavior=BehaviorLimits(**behavior_values),
         dependencies=DependencyLimits(**dependency_values),
         vulnerability=VulnerabilityLimits(**vulnerability_values),
-        correlation=CorrelationLimits(**correlation_values), **patterns,
+        correlation=CorrelationLimits(**correlation_values), ai=AISettings(**ai_values), **patterns,
     )

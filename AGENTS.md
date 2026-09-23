@@ -9,7 +9,7 @@ Read [security boundaries](docs/SECURITY_BOUNDARIES.md) before changing target-h
 ## Project and environment
 
 - Python `>=3.12,<3.13`, selected explicitly; uv manages local environments. Do not alter system Python or another project's environment.
-- The project currently has no runtime dependencies. Standard library only. Phases 1–4 scanners and Phase 5 correlation/risk annotations exist; no scan CLI exists yet.
+- The default package has no third-party runtime dependencies. The Phase 6 Gemini adapter uses an optional `gemini` extra and loads only after trusted opt-in. Phases 1–4 scanners, Phase 5 correlation/risk annotations, and the Phase 6 AI review library exist; no scan CLI exists yet.
 - Source lives under `src/security_auditor/`; tests use `unittest` in `tests/`.
 - On Windows PowerShell, after Python 3.12 is available: `$env:PYTHONPATH='src'; py -3.12 -m unittest discover -s tests -v`.
 - `uv run --no-sync --python 3.12 python -m unittest discover -s tests -v` is the intended uv route once a suitable interpreter is installed; verify rather than assuming it works locally.
@@ -19,6 +19,7 @@ Read [security boundaries](docs/SECURITY_BOUNDARIES.md) before changing target-h
 Core domain and scanner contracts depend only on the Python standard library. Discovery supplies bounded, classified `FileArtifact` data; scanners return `ScannerResult`; normalization and reporting own additional deduplication, redaction checks, escaping, and output. Scanners reopen only admitted artifacts through bounded discovery content reads. Secret Scanner redacts before constructing a `Finding`; SAST requires a source-to-sink path for injection claims; Behavior Scanner emits neutral operation signals. Scanner plugins cannot control CLI, write reports, modify targets, or execute target code. Optional external tools, online advisory lookup, and AI review live behind adapters and are disabled unless explicitly selected. Read [architecture](docs/ARCHITECTURE.md), [discovery](docs/DISCOVERY.md), [secret scanner](docs/SECRET_SCANNER.md), [SAST](docs/SAST.md), [behavior scanner](docs/BEHAVIOR_SCANNER.md), [finding schema](docs/FINDING_SCHEMA.md), and [scanner contract](docs/SCANNER_CONTRACT.md) when extending contracts.
 Phase 4 dependency parsing is static and consumes Phase 1 admitted artifacts. Never invoke target package managers or build backends; only exact validated registry versions may be sent to the optional OSV provider. Keep `NO_DATA` distinct from `NO_MATCH`, and never equate an advisory match with application exploitability. Read [dependency scanner](docs/DEPENDENCY_SCANNER.md) before changing supply-chain behavior.
 Phase 5 correlation consumes normalized, redacted scanner results only. It never reopens target files, mutates original findings, or adds supporting severities. Keep priority distinct from exploit probability and CVSS; propagate incomplete coverage. Read [correlation](docs/CORRELATION.md) and [risk engine](docs/RISK_ENGINE.md) before changing that layer.
+Phase 6 AI review is advisory and disabled by default. It needs trusted settings, an explicit online grant, and a non-offline session. Never take API keys from the target, send whole files or repositories, enable Gemini tools, or let AI mutate Findings or risk assessments. Read [AI reviewer](docs/AI_REVIEWER.md) before changing that layer.
 
 ## Dependency policy
 

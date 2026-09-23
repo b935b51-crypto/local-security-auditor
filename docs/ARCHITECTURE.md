@@ -1,6 +1,8 @@
-# Architecture — Phase 5 baseline
+# Architecture — Phase 6 baseline
 
 ## Invariant and data flow
+
+Phase 6 adds an optional AI advisory layer after deterministic findings and correlation. It selects bounded subjects, constructs and redacts minimal context, calls an isolated provider only after trusted opt-in, validates structured output, and returns separate AI annotations. Provider failure leaves all original findings and risk assessments available. See [AI Reviewer](AI_REVIEWER.md).
 
 Phase 5 adds a bounded deterministic correlation layer after normalized scanner results. It creates separate graph, grouping, candidate, and risk-priority annotations without target reads or mutation of original findings. See [Correlation](CORRELATION.md) and [Risk Engine](RISK_ENGINE.md).
 
@@ -58,7 +60,7 @@ Discovery defaults are configurable: version-control `.gitignore` is separate fr
 
 ## Reporting and CLI direction
 
-Future CLI: `security-auditor scan <path> [--profile quick|standard|deep] [--format console|json|sarif|html] [--output PATH] [--include GLOB] [--exclude GLOB] [--no-ai] [--offline]`. Phase 4 does not expose it.
+Future CLI: `security-auditor scan <path> [--profile quick|standard|deep] [--format console|json|sarif|html] [--output PATH] [--include GLOB] [--exclude GLOB] [--no-ai] [--offline]`. Phase 6 does not expose it.
 
 Scanner → Finding → Finding Store → Reporter. Console is a concise, terminal-safe view. JSON is a versioned machine contract for CI, Codex, and GUI. SARIF maps rules, locations, severity, and fingerprints for GitHub/IDE/CI; unsupported fields remain in versioned properties. HTML is inert: escape all source-derived text, no scanned-content scripts or event handlers, restrictive CSP, no remote assets by default. Reports include scanner coverage, skips, failures, and incomplete status. JSON/SARIF/HTML cannot serialize raw secret values.
 
