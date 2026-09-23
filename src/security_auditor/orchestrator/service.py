@@ -20,6 +20,7 @@ from security_auditor.scanners.dependencies.scanner import DependencyScanner
 from security_auditor.correlation.engine import CorrelationEngine
 from security_auditor.ai.reviewer import AIReviewer
 from security_auditor.reporting.models import ScanReport, assemble_report
+from security_auditor.remediation.planner import RemediationPlanner
 from .models import ScanRequest
 
 
@@ -39,7 +40,8 @@ class ScanOrchestrator:
         config = request.config
         profile = request.profile or config.profile
         # --ai alone grants Gemini egress, not an implicit OSV lookup.
-        ai_only_online = request.ai_requested and request.offline is None and config.offline
+        ai_only_online = ((request.ai_requested or request.ai_remediation_requested)
+                          and request.offline is None and config.offline)
         offline = (False if ai_only_online else
                    config.offline if request.offline is None else request.offline)
         # Explicit --ai is necessary even when a trusted config enables AI.
@@ -86,7 +88,25 @@ class ScanOrchestrator:
                         tool_config_dir=self.tool_config_dir)
                 except Exception:
                     ai = None
-        return assemble_report(session, discovery, tuple(results), correlation, ai,
-                               dependency_outcome, ai_requested=request.ai_requested,
-                               started_at=started, completed_at=datetime.now(timezone.utc),
-                               duration_seconds=monotonic() - clock)
+        report = assemble_report(session, discovery, tuple(results), correlation, ai,
+                                 dependency_outcome, ai_requested=request.ai_requested,
+                                 started_at=started, completed_at=datetime.now(timezone.utc),
+                                 duration_seconds=monotonic() - clock)
+        if request.propose_fixes and discovery.root is not None:
+            try:
+                planner = RemediationPlanner(replace(config.remediation, enabled=True),
+                                             config.sast, ai_provider=self.ai_provider,
+                                             tool_config_dir=self.tool_config_dir)
+                batch = planner.plan(report, ai_remediation=request.ai_remediation_requested)
+                report = replace(report, remediation_proposals=batch.proposals,
+                    remediation_diagnostics=batch.diagnostics,
+                    remediation_requested=True,
+                    remediation_ai_requests=batch.ai_requests,
+                    external_services=tuple((name, used or name == "gemini" and batch.ai_requests > 0)
+                                            for name, used in report.external_services),
+                    completed_at=datetime.now(timezone.utc),
+                    duration_seconds=monotonic() - clock)
+            except Exception:
+                report = replace(report, remediation_requested=True,
+                                 remediation_diagnostics=("PATCH_VALIDATION_PARTIAL",))
+        return report

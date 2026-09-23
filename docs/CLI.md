@@ -19,3 +19,5 @@ Defaults: `standard`, console stdout, offline, AI disabled, no report file. `qui
 Exit codes: `0` scan/report completed, `2` CLI/config usage error, `3` target validation or fatal scan failure, `4` report serialization/write failure, `10` requested deterministic threshold met. Partial coverage is a completed operation and does not by itself change exit code. Interrupts return a nonzero failure code. No telemetry or automatic target write is performed.
 
 See [Reporting](REPORTING.md) for output schema, coverage meanings, and privacy rules.
+
+Phase 8 adds `--propose-fixes` for guidance and non-applied patch proposals. `--ai-remediation` requires `--propose-fixes` and separately grants Gemini patch egress when online; `--ai` alone remains advisory review only. `--offline` still allows deterministic proposals. There is no apply option and runtime target tests are never run. See [Remediation](REMEDIATION.md).

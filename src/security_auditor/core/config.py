@@ -94,6 +94,16 @@ AI_HARD_CAPS = {
     "max_estimated_input_tokens": 100000, "max_seconds": 1800,
     "timeout_seconds": 120, "max_retries": 2,
 }
+REMEDIATION_HARD_CAPS = {
+    "max_proposals": 100, "max_patch_proposals": 30,
+    "max_patch_file_bytes": 1024 * 1024, "max_changed_lines": 100,
+    "max_hunks": 10, "max_patch_output_bytes": 128 * 1024,
+    "max_patch_seconds": 120,
+}
+AI_REMEDIATION_HARD_CAPS = {
+    "max_requests": 10, "max_context_chars": 8000,
+    "max_output_tokens": 4096, "max_total_tokens_estimate": 30000,
+}
 
 
 def _validate_limits(instance: object, caps: dict[str, int]) -> None:
@@ -250,6 +260,48 @@ class AISettings:
 
 
 @dataclass(frozen=True, slots=True)
+class AIRemediationSettings:
+    enabled: bool = False
+    model: str = "gemini-3.8-flash"
+    thinking_level: str = "medium"
+    max_requests: int = 3
+    max_context_chars: int = 4000
+    max_output_tokens: int = 2048
+    max_total_tokens_estimate: int = 12000
+
+    def __post_init__(self) -> None:
+        if type(self.enabled) is not bool or self.model != "gemini-3.8-flash":
+            raise ValueError("invalid AI remediation setting")
+        if self.thinking_level not in {"low", "medium", "high"}:
+            raise ValueError("invalid AI remediation thinking level")
+        for name, ceiling in AI_REMEDIATION_HARD_CAPS.items():
+            value = getattr(self, name)
+            if type(value) is not int or not 1 <= value <= ceiling:
+                raise ValueError(f"{name} outside safe range")
+
+
+@dataclass(frozen=True, slots=True)
+class RemediationSettings:
+    enabled: bool = False
+    max_proposals: int = 50
+    max_patch_proposals: int = 20
+    max_patch_file_bytes: int = 256 * 1024
+    max_changed_lines: int = 50
+    max_hunks: int = 5
+    max_patch_output_bytes: int = 32 * 1024
+    max_patch_seconds: int = 30
+    ai: AIRemediationSettings = AIRemediationSettings()
+
+    def __post_init__(self) -> None:
+        if type(self.enabled) is not bool or not isinstance(self.ai, AIRemediationSettings):
+            raise ValueError("invalid remediation setting")
+        for name, ceiling in REMEDIATION_HARD_CAPS.items():
+            value = getattr(self, name)
+            if type(value) is not int or not 1 <= value <= ceiling:
+                raise ValueError(f"{name} outside safe range")
+
+
+@dataclass(frozen=True, slots=True)
 class DiscoveryLimits:
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE
     max_file_count: int = DEFAULT_MAX_FILE_COUNT
@@ -281,13 +333,14 @@ class AuditConfig:
     vulnerability: VulnerabilityLimits = VulnerabilityLimits()
     correlation: CorrelationLimits = CorrelationLimits()
     ai: AISettings = AISettings()
+    remediation: RemediationSettings = RemediationSettings()
 
 
 def load_config(path: Path) -> AuditConfig:
     """Load operator-selected TOML; rejects unknown keys and unsafe limit increases."""
     with path.open("rb") as stream:
         raw = tomllib.load(stream)
-    if set(raw) - {"scan", "discovery", "secrets", "sast", "behavior", "dependencies", "vulnerability", "correlation", "ai"}:
+    if set(raw) - {"scan", "discovery", "secrets", "sast", "behavior", "dependencies", "vulnerability", "correlation", "ai", "remediation"}:
         raise ValueError("unknown top-level config key")
     scan = raw.get("scan", {})
     discovery = raw.get("discovery", {})
@@ -298,8 +351,12 @@ def load_config(path: Path) -> AuditConfig:
     vulnerability = raw.get("vulnerability", {})
     correlation = raw.get("correlation", {})
     ai = raw.get("ai", {})
-    if any(not isinstance(table, dict) for table in (scan, discovery, secrets, sast, behavior, dependencies, vulnerability, correlation, ai)):
+    remediation = raw.get("remediation", {})
+    if any(not isinstance(table, dict) for table in (scan, discovery, secrets, sast, behavior, dependencies, vulnerability, correlation, ai, remediation)):
         raise ValueError("invalid config table")
+    remediation_ai = remediation.get("ai", {})
+    if not isinstance(remediation_ai, dict):
+        raise ValueError("invalid AI remediation config")
     if set(scan) - {"profile", "offline"} or set(discovery) - {
         "include", "exclude", "default_exclude", "respect_gitignore",
         "follow_symlinks", "follow_reparse_points", "max_file_size_bytes",
@@ -324,6 +381,10 @@ def load_config(path: Path) -> AuditConfig:
         raise ValueError("unknown correlation config key")
     if set(ai) - set(AI_HARD_CAPS) - {"enabled", "provider", "model", "thinking_level", "include_source"}:
         raise ValueError("unknown ai config key")
+    if set(remediation) - set(REMEDIATION_HARD_CAPS) - {"enabled", "ai"}:
+        raise ValueError("unknown remediation config key")
+    if set(remediation_ai) - set(AI_REMEDIATION_HARD_CAPS) - {"enabled", "model", "thinking_level"}:
+        raise ValueError("unknown ai remediation config key")
     profile = ScanProfile(scan.get("profile", "standard"))
     offline = scan.get("offline", True)
     respect_gitignore = discovery.get("respect_gitignore", False)
@@ -380,11 +441,20 @@ def load_config(path: Path) -> AuditConfig:
     ai_defaults = AISettings()
     ai_values = {key: ai.get(key, getattr(ai_defaults, key))
                  for key in AISettings.__dataclass_fields__}
+    remediation_defaults = RemediationSettings()
+    remediation_values = {key: remediation.get(key, getattr(remediation_defaults, key))
+                          for key in REMEDIATION_HARD_CAPS}
+    remediation_values["enabled"] = remediation.get("enabled", False)
+    ai_remediation_defaults = AIRemediationSettings()
+    ai_remediation_values = {key: remediation_ai.get(key, getattr(ai_remediation_defaults, key))
+                             for key in AIRemediationSettings.__dataclass_fields__}
+    remediation_values["ai"] = AIRemediationSettings(**ai_remediation_values)
     return AuditConfig(
         profile=profile, offline=offline, respect_gitignore=respect_gitignore,
         limits=DiscoveryLimits(**values), secrets=SecretLimits(**secret_values),
         sast=SASTLimits(**sast_values), behavior=BehaviorLimits(**behavior_values),
         dependencies=DependencyLimits(**dependency_values),
         vulnerability=VulnerabilityLimits(**vulnerability_values),
-        correlation=CorrelationLimits(**correlation_values), ai=AISettings(**ai_values), **patterns,
+        correlation=CorrelationLimits(**correlation_values), ai=AISettings(**ai_values),
+        remediation=RemediationSettings(**remediation_values), **patterns,
     )

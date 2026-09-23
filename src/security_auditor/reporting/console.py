@@ -62,6 +62,19 @@ def render(report: ScanReport, *, top: int = 20, verbose: bool = False) -> str:
     dep = view["summary"]["dependency"]
     lines.append(f"Dependency data: {dep['packages']} packages, {dep['exact_versions']} exact, "
                  f"{dep['no_data']} without advisory data, {dep['matches']} matches")
+    if view["scan"]["remediation_requested"]:
+        remediation = view["summary"]["remediation"]
+        lines.extend(["", "Remediation proposals (never applied)",
+                      f"  Guidance: {remediation['proposals']}  Patches: {remediation['patches']}  "
+                      f"AI requests: {remediation['ai_requests']}"])
+        for proposal in view["remediation_proposals"][:20]:
+            lines.append(f"  {proposal['title']}: {proposal['strategy']} / {proposal['status']}")
+            lines.append("    Runtime tests: NOT_RUN  Human approval: REQUIRED")
+            if verbose and proposal["patch_candidate"]:
+                lines.append("    Public diff (display only):")
+                lines.append(proposal["patch_candidate"]["unified_diff"][:1200])
+        for code in remediation["diagnostics"][:20]:
+            lines.append(f"  {code}")
     lines.extend(["", "Coverage warnings"])
     for reason in coverage["reasons"][:30]:
         lines.append(f"  {reason}")

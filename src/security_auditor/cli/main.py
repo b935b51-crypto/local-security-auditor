@@ -40,6 +40,10 @@ def parser() -> argparse.ArgumentParser:
     scan.add_argument("--no-color", action="store_true")
     scan.add_argument("--verbose", action="store_true")
     scan.add_argument("--fail-on", choices=("critical", "high", "medium", "low", "info"))
+    scan.add_argument("--propose-fixes", action="store_true",
+                      help="generate remediation guidance and non-applied patch proposals")
+    scan.add_argument("--ai-remediation", action="store_true",
+                      help="explicitly request Gemini patch proposals; requires --propose-fixes")
     return root
 
 
@@ -48,11 +52,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.format == "html" and args.output is None:
         print("HTML output requires --output", file=sys.stderr)
         return EXIT_USAGE
+    if args.ai_remediation and not args.propose_fixes:
+        print("--ai-remediation requires --propose-fixes", file=sys.stderr)
+        return EXIT_USAGE
     try:
         config = load_config(args.config) if args.config else AuditConfig()
         request = ScanRequest(args.path, config,
                               ScanProfile(args.profile) if args.profile else None,
-                              True if args.offline else None, args.ai, args.no_ai)
+                              True if args.offline else None, args.ai, args.no_ai,
+                              args.propose_fixes, args.ai_remediation)
     except (OSError, ValueError, TypeError):
         print("Invalid trusted configuration or scan options", file=sys.stderr)
         return EXIT_USAGE
@@ -69,7 +77,7 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_SCAN
     try:
         if args.format == "console":
-            rendered = console.render(report)
+            rendered = console.render(report, verbose=args.verbose)
         elif args.format == "json":
             rendered = json_report.render(report)
         elif args.format == "sarif":

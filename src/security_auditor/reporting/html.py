@@ -80,6 +80,25 @@ def render(report: ScanReport) -> str:
     for review in data["ai_reviews"]:
         out.append(f"<details><summary>{_e(review['subject_type'])} {_e(review['subject_id'])}: "
                    f"{_e(review['verdict'])}</summary><p>{_e(review['summary'])}</p></details>")
+    out.append("</section><section><h2>Remediation proposals</h2>"
+               "<p>Proposals are not applied. Runtime tests were not run. Human approval is required.</p>")
+    for proposal in data["remediation_proposals"]:
+        out.append(f"<details><summary>{_e(proposal['title'])}: {_e(proposal['strategy'])} / "
+                   f"{_e(proposal['status'])}</summary>")
+        out.append(f"<p>{_e(proposal['summary'])}</p><ol>")
+        for step in proposal["remediation_steps"]:
+            out.append(f"<li>{_e(step)}</li>")
+        out.append("</ol>")
+        for assumption in proposal["assumptions"]:
+            out.append(f"<p>Assumption: {_e(assumption)}</p>")
+        if proposal["patch_candidate"]:
+            patch = proposal["patch_candidate"]
+            out.append(f"<p>File: {_e(patch['target_relative_path'])}; "
+                       f"static validation: {_e(proposal['validation']['static_validation_status'])}</p>"
+                       f"<pre>{_e(patch['unified_diff'])}</pre>")
+        out.append("<p>Runtime tests: NOT_RUN. Human approval: REQUIRED.</p></details>")
+    for code in data["summary"]["remediation"]["diagnostics"]:
+        out.append(f"<p>{_e(code)}</p>")
     out.append("</section><section><h2>Coverage and diagnostics</h2>")
     out.append(f"<p>Skipped files: {_e(coverage['skipped_files'])}; "
                f"budget limits hit: {_e(coverage['budget_limits_hit'])}</p>")

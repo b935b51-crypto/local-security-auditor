@@ -27,6 +27,9 @@ Adversary controls target directory contents, names, links/reparse points, manif
 | Report-output path pivot | symlink/junction parent, device/UNC path, reserved Windows name, output race | overwrite or write outside intended destination | reject reparse/special paths, require explicit destination and force, same-directory atomic write | filesystem races and unusual volumes remain |
 | Gigantic report | many findings, paths, or diagnostics | memory/disk denial of service | fixed report item caps, explicit truncation, HTML byte ceiling | in-memory scan results still consume their bounded upstream budget |
 | Report content injection | hostile filename, AI text, advisory summary, diagnostic or terminal control sequence | active HTML or deceptive terminal/CI output | final redaction whitelist, HTML escape and CSP, no JS, terminal controls rendered inert, JSON/SARIF structural encoding | downstream consumers may render data unsafely |
+| Malicious AI patch | prompt-injected source or structured replacement requests other files, suppressed rules, destructive changes, or new vulnerabilities | misleading fix or target damage if manually applied | exact one-file scope, line budget, forbidden paths, suppression/destructive checks, in-memory AST and SAST comparison, human approval | heuristics and static rules cannot establish runtime correctness |
+| Patch secret leakage | unified diff reproduces credential or API key | report disclosure | zero-context diff, changed-line secret rejection, output redaction, no raw patch export | novel secret shapes may evade heuristic detection |
+| Stale source and path pivot | target changes after scan, symlink/reparse swap, traversal path | proposal for wrong file or outside root | admitted artifact reopen, identity/mtime/size/hash checks, no-follow policy, relative path validation | filesystem races remain on Windows without handle-relative sandbox |
 
 ## Security validation gates
 

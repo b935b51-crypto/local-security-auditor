@@ -96,7 +96,7 @@ class ReportTests(unittest.TestCase):
             self.assertFalse(self.fake_secret in item)
             self.assertFalse(self.fake_key in item)
         canonical = json.loads(rendered[1])
-        self.assertEqual(canonical["schema_version"], "1.0")
+        self.assertEqual(canonical["schema_version"], "1.1")
         self.assertEqual(canonical["summary"]["counts"]["total_findings"], len(report.findings))
         self.assertEqual(rendered[1], json_report.render(report))
         sarif_data = json.loads(rendered[2])

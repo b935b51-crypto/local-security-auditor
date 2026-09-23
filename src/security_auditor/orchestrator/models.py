@@ -17,7 +17,11 @@ class ScanRequest:
     offline: bool | None = None
     ai_requested: bool = False
     ai_disabled: bool = False
+    propose_fixes: bool = False
+    ai_remediation_requested: bool = False
 
     def __post_init__(self) -> None:
         if self.ai_requested and self.ai_disabled:
             raise ValueError("conflicting AI choices")
+        if self.ai_remediation_requested and not self.propose_fixes:
+            raise ValueError("AI remediation requires remediation proposals")

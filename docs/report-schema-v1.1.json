@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-security-auditor.invalid/schemas/report-v1.1.json",
+  "title": "Local Security Auditor canonical report 1.1",
+  "type": "object",
+  "required": ["schema_version", "tool", "scan", "coverage", "summary", "diagnostics", "findings", "finding_groups", "attack_paths", "risk_assessments", "ai_reviews", "remediation_proposals", "report_truncated"],
+  "properties": {
+    "schema_version": {"const": "1.1"},
+    "tool": {"type": "object", "required": ["name", "version"]},
+    "scan": {"type": "object", "required": ["scan_id", "profile", "offline", "remediation_requested"]},
+    "coverage": {"type": "object", "required": ["overall", "components", "reasons", "skipped_files"]},
+    "summary": {"type": "object", "required": ["counts", "dependency", "ai_status", "external_services", "remediation"]},
+    "diagnostics": {"type": "array"},
+    "findings": {"type": "array"},
+    "finding_groups": {"type": "array"},
+    "attack_paths": {"type": "array"},
+    "risk_assessments": {"type": "array"},
+    "ai_reviews": {"type": "array"},
+    "remediation_proposals": {"type": "array", "maxItems": 100, "items": {
+      "type": "object",
+      "required": ["proposal_id", "finding_id", "strategy", "status", "remediation_steps", "patch_candidate", "human_approval_required"],
+      "properties": {
+        "strategy": {"enum": ["GUIDANCE_ONLY", "DETERMINISTIC", "AI_ASSISTED"]},
+        "status": {"enum": ["GUIDANCE_ONLY", "VALIDATED_STATICALLY", "PARTIAL_VALIDATION", "REJECTED"]},
+        "human_approval_required": {"const": true},
+        "patch_candidate": {"type": ["object", "null"]}
+      }
+    }},
+    "report_truncated": {"type": "boolean"}
+  },
+  "additionalProperties": true
+}

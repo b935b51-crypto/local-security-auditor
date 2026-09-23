@@ -106,3 +106,22 @@ max_estimated_input_tokens = 20000
 max_seconds = 180
 timeout_seconds = 20
 max_retries = 1
+
+[remediation]
+enabled = false # also requires --propose-fixes; never applies changes
+max_proposals = 50
+max_patch_proposals = 20
+max_patch_file_bytes = 262144
+max_changed_lines = 50
+max_hunks = 5
+max_patch_output_bytes = 32768
+max_patch_seconds = 30
+
+[remediation.ai]
+enabled = false # also requires explicit --ai-remediation
+model = "gemini-3.8-flash"
+thinking_level = "medium"
+max_requests = 3
+max_context_chars = 4000
+max_output_tokens = 2048
+max_total_tokens_estimate = 12000

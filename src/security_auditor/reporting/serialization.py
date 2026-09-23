@@ -18,6 +18,15 @@ def safe_text(value: object, *, limit: int = 2000) -> str:
     return redact_text(str(value)[:limit])[:limit]
 
 
+def safe_diff(value: str, *, limit: int = 32768) -> str:
+    if len(value) > limit:
+        return "[PATCH DIFF OMITTED]"
+    lines = value.splitlines(keepends=True)
+    safe = "".join(redact_text(line.removesuffix("\n").removesuffix("\r")) +
+                   ("\n" if line.endswith("\n") else "") for line in lines)
+    return safe if safe == value.replace("\r\n", "\n") else "[PATCH DIFF OMITTED]"
+
+
 def safe_path(value: str | None) -> str | None:
     if value is None:
         return None
@@ -107,7 +116,8 @@ def report_view(report: ScanReport) -> dict:
                  "duration_seconds": round(report.duration_seconds, 3),
                  "target": safe_text(report.target_display, limit=200),
                  "profile": report.profile, "offline": report.offline,
-                 "ai_requested": report.ai_requested},
+                 "ai_requested": report.ai_requested,
+                 "remediation_requested": report.remediation_requested},
         "environment": {"platform": report.environment_platform,
                         "python": report.environment_python},
         "coverage": {"overall": report.coverage.overall.value,
@@ -142,7 +152,11 @@ def report_view(report: ScanReport) -> dict:
                                    "no_data": report.dependency.no_data,
                                    "matches": report.dependency.matches},
                     "ai_status": report.ai_status,
-                    "external_services": dict(report.external_services)},
+                    "external_services": dict(report.external_services),
+                    "remediation": {"proposals": len(report.remediation_proposals),
+                                    "patches": sum(p.patch_candidate is not None for p in report.remediation_proposals),
+                                    "ai_requests": report.remediation_ai_requests,
+                                    "diagnostics": list(report.remediation_diagnostics)}},
         "diagnostics": [{"source": d.source, "code": safe_text(d.code, limit=100),
                          "message": safe_text(d.message, limit=500), "path": safe_path(d.path),
                          "count": d.count} for d in report.diagnostics],
@@ -180,6 +194,52 @@ def report_view(report: ScanReport) -> dict:
                                   "output_tokens": r.usage.output_tokens,
                                   "total_tokens": r.usage.total_tokens}}
                        for r in report.ai_reviews],
+        "remediation_proposals": [{
+            "proposal_id": safe_text(p.proposal_id, limit=64),
+            "finding_id": safe_text(p.finding_id, limit=128),
+            "strategy": p.strategy.value, "status": p.status.value,
+            "title": safe_text(p.title, limit=500),
+            "summary": safe_text(p.summary, limit=500),
+            "rationale": safe_text(p.rationale, limit=500),
+            "preconditions": [safe_text(x, limit=500) for x in p.preconditions],
+            "remediation_steps": [safe_text(x, limit=500) for x in p.remediation_steps],
+            "external_actions_required": [safe_text(x, limit=100) for x in p.external_actions_required],
+            "provider_reported_fixed_versions": [safe_text(x, limit=100) for x in p.provider_reported_fixed_versions],
+            "assumptions": [safe_text(x, limit=500) for x in p.assumptions],
+            "limitations": [safe_text(x, limit=500) for x in p.limitations],
+            "human_approval_required": True,
+            "provenance": safe_text(p.provenance, limit=100),
+            "patch_candidate": ({"patch_id": safe_text(p.patch_candidate.patch_id, limit=64),
+                                 "target_relative_path": safe_path(p.patch_candidate.target_relative_path),
+                                 "original_fingerprint": p.patch_candidate.original_fingerprint,
+                                 "proposed_content_fingerprint": p.patch_candidate.proposed_content_fingerprint,
+                                 "unified_diff": safe_diff(p.patch_candidate.unified_diff),
+                                 "changed_hunks": p.patch_candidate.changed_hunks,
+                                 "changed_line_count": p.patch_candidate.changed_line_count,
+                                 "provenance": safe_text(p.patch_candidate.provenance, limit=100),
+                                 "generated_by": safe_text(p.patch_candidate.generated_by, limit=100),
+                                 "generated_at": p.patch_candidate.generated_at,
+                                 "patch_confidence": p.patch_candidate.patch_confidence.value,
+                                 "provider": p.patch_candidate.provider,
+                                 "model": p.patch_candidate.model,
+                                 "prompt_version": p.patch_candidate.prompt_version,
+                                 "human_approval_required": True}
+                                if p.patch_candidate else None),
+            "validation": ({"applies_cleanly": v.applies_cleanly,
+                            "source_fresh": v.source_fresh, "scope_valid": v.scope_valid,
+                            "syntax_status": v.syntax_status.value,
+                            "target_finding_before": v.target_finding_before,
+                            "target_finding_after": v.target_finding_after,
+                            "target_finding_removed": v.target_finding_removed,
+                            "new_findings": list(v.new_findings),
+                            "new_high_findings": list(v.new_high_findings),
+                            "existing_findings_removed": list(v.existing_findings_removed),
+                            "existing_findings_changed": list(v.existing_findings_changed),
+                            "static_validation_status": v.static_validation_status.value,
+                            "runtime_tests_status": "NOT_RUN",
+                            "limitations": [safe_text(x, limit=500) for x in v.limitations],
+                            "diagnostics": list(v.diagnostics)} if (v := p.validation_result) else None),
+        } for p in report.remediation_proposals],
         "report_truncated": report.report_truncated,
         "limitations": [safe_text(x, limit=500) for x in report.limitations],
     }

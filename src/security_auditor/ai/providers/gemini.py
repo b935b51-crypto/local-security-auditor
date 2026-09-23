@@ -39,15 +39,30 @@ class GeminiProvider:
 
     def review(self, context: str, *, api_key: str, thinking_level: str,
                max_output_tokens: int, timeout_seconds: float) -> ProviderResponse:
+        return self._structured(context, api_key=api_key, thinking_level=thinking_level,
+                                max_output_tokens=max_output_tokens, timeout_seconds=timeout_seconds,
+                                system_instruction=SYSTEM_INSTRUCTION, schema=RESPONSE_SCHEMA)
+
+    def propose_patch(self, context: str, *, api_key: str, thinking_level: str,
+                      max_output_tokens: int, timeout_seconds: float) -> ProviderResponse:
+        from security_auditor.remediation.prompts import PATCH_RESPONSE_SCHEMA, PATCH_SYSTEM_INSTRUCTION
+        return self._structured(context, api_key=api_key, thinking_level=thinking_level,
+                                max_output_tokens=max_output_tokens, timeout_seconds=timeout_seconds,
+                                system_instruction=PATCH_SYSTEM_INSTRUCTION,
+                                schema=PATCH_RESPONSE_SCHEMA)
+
+    def _structured(self, context: str, *, api_key: str, thinking_level: str,
+                    max_output_tokens: int, timeout_seconds: float,
+                    system_instruction: str, schema: dict) -> ProviderResponse:
         client = None
         try:
             client = self._client(api_key)
             interaction = client.interactions.create(
                 model=self.model,
                 input=context,
-                system_instruction=SYSTEM_INSTRUCTION,
+                system_instruction=system_instruction,
                 response_format=[{"type": "text", "mime_type": "application/json",
-                                  "schema": RESPONSE_SCHEMA}],
+                                  "schema": schema}],
                 generation_config={"thinking_level": thinking_level,
                                    "max_output_tokens": max_output_tokens},
                 tools=[], store=False, background=False, stream=False,

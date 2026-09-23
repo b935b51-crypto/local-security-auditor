@@ -1,6 +1,6 @@
 # Local Security Auditor
 
-Offline-first static security auditor of untrusted local repositories. **TARGET CODE MUST NEVER BE EXECUTED AUTOMATICALLY.** Phases 1–4 implement bounded discovery, local secret and Python SAST/behavior scanning, and static dependency inventory with optional OSV lookup. Phase 5 adds deterministic correlation and risk annotations. Phase 6 adds optional advisory AI review. Phase 7 adds the `security-auditor scan PATH` CLI and safe Console, JSON, SARIF, and HTML reports.
+Offline-first static security auditor of untrusted local repositories. **TARGET CODE MUST NEVER BE EXECUTED AUTOMATICALLY.** Phases 1–4 implement bounded discovery, local secret and Python SAST/behavior scanning, and static dependency inventory with optional OSV lookup. Phase 5 adds deterministic correlation and risk annotations. Phase 6 adds optional advisory AI review. Phase 7 adds the `security-auditor scan PATH` CLI and safe Console, JSON, SARIF, and HTML reports. Phase 8 adds optional remediation guidance and non-applied patch proposals; see [Remediation](docs/REMEDIATION.md).
 
 Use Python 3.12 with `uv`; the system Python is not modified. From the project root, when Python 3.12 is available:
 

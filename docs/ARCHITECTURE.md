@@ -1,4 +1,14 @@
-# Architecture — Phase 7 baseline
+# Architecture — Phase 8 baseline
+
+Phase 8 extends the ordered scan after canonical report assembly: `ScanReport` plus admitted artifacts enter an optional `RemediationPlanner`; it returns separate immutable proposals and fixed diagnostics. The orchestrator attaches them to the report. Deterministic findings, risk, and AI advisory review remain unchanged. The planner depends on core models, discovery's bounded content reader, the Python AST analyzer, and the optional Gemini adapter. Core and scanners never depend on remediation or reporting. See [Remediation](REMEDIATION.md).
+
+```text
+admitted artifact + Finding -> guidance or narrow line edits
+  -> scope/freshness check -> in-memory apply -> AST and relevant SAST re-scan
+  -> before/after comparison -> public redacted PatchCandidate -> ScanReport 1.1
+```
+
+No target path is opened for writing, no target code or tests are executed, and no patch is applied. A failed proposal leaves existing findings and report generation intact. AI patch generation has its own explicit opt-in and budget; Gemini's structured edits pass the same deterministic validators as local edits. Runtime correctness remains unverified.
 
 Phase 7 adds a trusted CLI and orchestrator. A `ScanRequest` enters bounded discovery, ordered deterministic scanners, correlation/risk, optional AI review, and one immutable `ScanReport`. Console, JSON, SARIF, and HTML renderers use an explicit sanitized public view of that report. Renderers never open the target. See [CLI](CLI.md) and [Reporting](REPORTING.md).
 

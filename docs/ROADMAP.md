@@ -9,10 +9,10 @@
 | 4 | Dependency / CVE Scanner | implemented: static Python/npm/Cargo/Go inventory, exact-version OSV adapter, offline cache and explicit no-data semantics; limits in [Dependency Scanner](DEPENDENCY_SCANNER.md) |
 | 5 | Finding Correlation + Risk Engine | implemented: bounded graph, same-sink support, conservative context/candidates, explainable priority; limits in [Correlation](CORRELATION.md) and [Risk Engine](RISK_ENGINE.md) |
 | 6 | Optional AI Security Reviewer | implemented library layer: explicit opt-in, redacted bounded context, optional Gemini 3.8 Flash adapter, separate annotations; limits in [AI Reviewer](AI_REVIEWER.md) |
-| 7 | CLI + Console / JSON / SARIF / HTML Reporting | implemented: ordered orchestration, canonical report 1.0, output safety, coverage metadata; see [CLI](CLI.md) and [Reporting](REPORTING.md) |
-| 8 | Remediation + Patch Proposal | validation and human approval before applying |
+| 7 | CLI + Console / JSON / SARIF / HTML Reporting | implemented: ordered orchestration, canonical report 1.0 then 1.1, output safety, coverage metadata; see [CLI](CLI.md) and [Reporting](REPORTING.md) |
+| 8 | Remediation + Patch Proposal | implemented: conservative guidance, narrow TLS edit, optional separately granted Gemini edits, in-memory static validation, proposal-only reports; see [Remediation](REMEDIATION.md) |
 | 9 | GUI + Codex Integration | local workflow integration, no weakened boundaries |
 
-Phase 7 is an implementation milestone with limits recorded in [Reporting](REPORTING.md). Phase 8 is next and has not started.
+Phase 8 is an implementation milestone with no target writes or runtime validation. Phase 9 has not started.
 
-Phases 1–7 are complete as implementation milestones, with verification limits recorded in the linked phase documents and `PROJECT_STATUS.md`. Later phases may split by ecosystem if complexity warrants it, without changing the security boundary.
+Phases 1–8 are complete as implementation milestones, with verification limits recorded in the linked phase documents and `PROJECT_STATUS.md`. Later phases may split by ecosystem if complexity warrants it, without changing the security boundary.

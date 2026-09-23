@@ -16,8 +16,9 @@ from security_auditor.correlation.models import CorrelationResult, FindingGroup,
 from security_auditor.discovery.models import DiscoveryResult
 from security_auditor.scanners.dependencies.models import LookupStatus
 from security_auditor.scanners.dependencies.scanner import DependencyScanOutcome
+from security_auditor.remediation.models import RemediationProposal
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
 MAX_FINDINGS = 1000
 MAX_DIAGNOSTICS = 300
 MAX_ATTACK_PATHS = 100
@@ -113,6 +114,10 @@ class ScanReport:
     report_truncated: bool
     limitations: tuple[str, ...]
     external_services: tuple[tuple[str, bool], ...]
+    remediation_proposals: tuple[RemediationProposal, ...] = ()
+    remediation_diagnostics: tuple[str, ...] = ()
+    remediation_requested: bool = False
+    remediation_ai_requests: int = 0
 
 
 def _status(value: str) -> CoverageStatus:
