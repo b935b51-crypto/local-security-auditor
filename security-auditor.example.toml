@@ -54,3 +54,25 @@ max_ast_depth = 100
 max_matches_per_file = 100
 max_findings_total = 1000
 max_seconds = 300
+
+[dependencies]
+enabled = true
+max_file_bytes = 2097152
+max_total_bytes = 33554432
+max_entries = 20000
+max_dependencies = 20000
+max_include_depth = 8
+max_seconds = 300
+
+[vulnerability]
+enabled = true # still offline unless the trusted scan session explicitly sets offline=false
+provider = "osv"
+max_queries = 500
+max_batch_size = 50
+max_response_bytes = 1048576
+timeout_seconds = 10
+max_provider_seconds = 120
+max_provider_bytes_total = 16777216
+max_advisories = 100
+cache_enabled = true
+cache_ttl_seconds = 86400

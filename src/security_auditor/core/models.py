@@ -169,6 +169,12 @@ class DependencyArtifact:
     version: str | None
     manifest_path: str
     direct: bool | None = None
+    normalized_name: str | None = None
+    version_kind: str = "unknown"
+    dependency_group: str = "unknown"
+    package_source: str = "registry"
+    declared_constraint: str | None = None
+    source_paths: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,6 +184,13 @@ class VulnerabilityReference:
     cve: str | None = None
     cvss: str | None = None
     reference_uri: str | None = None
+    aliases: tuple[str, ...] = ()
+    summary: str | None = None
+    fixed_versions: tuple[str, ...] = ()
+    published: str | None = None
+    modified: str | None = None
+    severity_source: str | None = None
+    withdrawn: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -246,6 +259,7 @@ class ScannerSummary:
     duplicates_suppressed: int = 0
     limits_hit: int = 0
     completeness: Literal["complete", "partial", "aborted", "failed"] = "complete"
+    details: tuple[tuple[str, int], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

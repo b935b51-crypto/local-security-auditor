@@ -62,6 +62,24 @@ BEHAVIOR_HARD_CAPS = {
     "max_findings_total": 10000,
     "max_seconds": 3600,
 }
+DEPENDENCY_HARD_CAPS = {
+    "max_file_bytes": 8 * 1024 * 1024,
+    "max_total_bytes": 128 * 1024 * 1024,
+    "max_entries": 100000,
+    "max_dependencies": 100000,
+    "max_include_depth": 16,
+    "max_seconds": 3600,
+}
+VULNERABILITY_HARD_CAPS = {
+    "max_queries": 5000,
+    "max_batch_size": 100,
+    "max_response_bytes": 4 * 1024 * 1024,
+    "timeout_seconds": 30,
+    "max_provider_seconds": 600,
+    "max_provider_bytes_total": 64 * 1024 * 1024,
+    "cache_ttl_seconds": 30 * 24 * 3600,
+    "max_advisories": 10000,
+}
 
 
 def _validate_limits(instance: object, caps: dict[str, int]) -> None:
@@ -129,6 +147,45 @@ class SecretLimits:
 
 
 @dataclass(frozen=True, slots=True)
+class DependencyLimits:
+    enabled: bool = True
+    max_file_bytes: int = 2 * 1024 * 1024
+    max_total_bytes: int = 32 * 1024 * 1024
+    max_entries: int = 20000
+    max_dependencies: int = 20000
+    max_include_depth: int = 8
+    max_seconds: int = 300
+
+    def __post_init__(self) -> None:
+        _validate_limits(self, DEPENDENCY_HARD_CAPS)
+
+
+@dataclass(frozen=True, slots=True)
+class VulnerabilityLimits:
+    enabled: bool = True
+    provider: str = "osv"
+    max_queries: int = 500
+    max_batch_size: int = 50
+    max_response_bytes: int = 1024 * 1024
+    timeout_seconds: int = 10
+    max_provider_seconds: int = 120
+    max_provider_bytes_total: int = 16 * 1024 * 1024
+    cache_enabled: bool = True
+    cache_ttl_seconds: int = 86400
+    max_advisories: int = 100
+
+    def __post_init__(self) -> None:
+        if type(self.enabled) is not bool or type(self.cache_enabled) is not bool:
+            raise ValueError("vulnerability flags must be boolean")
+        if self.provider != "osv":
+            raise ValueError("unsupported vulnerability provider")
+        for key, ceiling in VULNERABILITY_HARD_CAPS.items():
+            value = getattr(self, key)
+            if type(value) is not int or not 1 <= value <= ceiling:
+                raise ValueError(f"{key} outside safe range")
+
+
+@dataclass(frozen=True, slots=True)
 class DiscoveryLimits:
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE
     max_file_count: int = DEFAULT_MAX_FILE_COUNT
@@ -156,20 +213,24 @@ class AuditConfig:
     secrets: SecretLimits = SecretLimits()
     sast: SASTLimits = SASTLimits()
     behavior: BehaviorLimits = BehaviorLimits()
+    dependencies: DependencyLimits = DependencyLimits()
+    vulnerability: VulnerabilityLimits = VulnerabilityLimits()
 
 
 def load_config(path: Path) -> AuditConfig:
     """Load operator-selected TOML; rejects unknown keys and unsafe limit increases."""
     with path.open("rb") as stream:
         raw = tomllib.load(stream)
-    if set(raw) - {"scan", "discovery", "secrets", "sast", "behavior"}:
+    if set(raw) - {"scan", "discovery", "secrets", "sast", "behavior", "dependencies", "vulnerability"}:
         raise ValueError("unknown top-level config key")
     scan = raw.get("scan", {})
     discovery = raw.get("discovery", {})
     secrets = raw.get("secrets", {})
     sast = raw.get("sast", {})
     behavior = raw.get("behavior", {})
-    if any(not isinstance(table, dict) for table in (scan, discovery, secrets, sast, behavior)):
+    dependencies = raw.get("dependencies", {})
+    vulnerability = raw.get("vulnerability", {})
+    if any(not isinstance(table, dict) for table in (scan, discovery, secrets, sast, behavior, dependencies, vulnerability)):
         raise ValueError("invalid config table")
     if set(scan) - {"profile", "offline"} or set(discovery) - {
         "include", "exclude", "default_exclude", "respect_gitignore",
@@ -187,6 +248,10 @@ def load_config(path: Path) -> AuditConfig:
         raise ValueError("unknown sast config key")
     if set(behavior) - set(BEHAVIOR_HARD_CAPS) - {"enabled"}:
         raise ValueError("unknown behavior config key")
+    if set(dependencies) - set(DEPENDENCY_HARD_CAPS) - {"enabled"}:
+        raise ValueError("unknown dependencies config key")
+    if set(vulnerability) - set(VULNERABILITY_HARD_CAPS) - {"enabled", "provider", "cache_enabled"}:
+        raise ValueError("unknown vulnerability config key")
     profile = ScanProfile(scan.get("profile", "standard"))
     offline = scan.get("offline", True)
     respect_gitignore = discovery.get("respect_gitignore", False)
@@ -231,8 +296,16 @@ def load_config(path: Path) -> AuditConfig:
     behavior_defaults = BehaviorLimits()
     behavior_values = {key: behavior.get(key, getattr(behavior_defaults, key))
                        for key in BehaviorLimits.__dataclass_fields__}
+    dependency_defaults = DependencyLimits()
+    dependency_values = {key: dependencies.get(key, getattr(dependency_defaults, key))
+                         for key in DependencyLimits.__dataclass_fields__}
+    vulnerability_defaults = VulnerabilityLimits()
+    vulnerability_values = {key: vulnerability.get(key, getattr(vulnerability_defaults, key))
+                            for key in VulnerabilityLimits.__dataclass_fields__}
     return AuditConfig(
         profile=profile, offline=offline, respect_gitignore=respect_gitignore,
         limits=DiscoveryLimits(**values), secrets=SecretLimits(**secret_values),
-        sast=SASTLimits(**sast_values), behavior=BehaviorLimits(**behavior_values), **patterns,
+        sast=SASTLimits(**sast_values), behavior=BehaviorLimits(**behavior_values),
+        dependencies=DependencyLimits(**dependency_values),
+        vulnerability=VulnerabilityLimits(**vulnerability_values), **patterns,
     )

@@ -1,8 +1,8 @@
-# Architecture — Phase 3 baseline
+# Architecture — Phase 4 baseline
 
 ## Invariant and data flow
 
-**TARGET CODE MUST NEVER BE EXECUTED AUTOMATICALLY.** The selected repository is untrusted input. The core runs offline; only explicit, separate adapters may access a network. Phase 1 implements bounded discovery/classification. Phase 2 adds a native offline Secret Scanner. Phase 3 adds separate Python AST SAST and neutral behavior plugins over admitted artifacts. No report pipeline runs yet.
+**TARGET CODE MUST NEVER BE EXECUTED AUTOMATICALLY.** The selected repository is untrusted input. The core runs offline; only explicit, separate adapters may access a network. Phase 1 implements bounded discovery/classification; Phases 2–3 add local secret, SAST, and behavior plugins. Phase 4 adds static dependency inventory plus optional exact-version OSV lookup and tool-local cache. No report pipeline runs yet.
 
 ```text
 CLI/UI -> policy + bounded discovery -> classified FileArtifact
@@ -42,7 +42,7 @@ Dependency direction: `core` knows no scanner, CLI, reporter, network client, or
 
 `ScanTarget`, `ScanSession`, `ScanProfile`, `FileArtifact`, `LanguageInfo`, `ScannerMetadata`, `Finding`, `Evidence`, `Location`, `Severity`, `Confidence`, `RuleReference`, `DependencyArtifact`, `VulnerabilityReference`, `Remediation`, `ScannerResult`, and `ReportSummary` are in `core/models.py`. `Scanner` and `AsyncScanner` protocols are in `core/contracts.py`. A future adapter runner normalizes synchronous, asynchronous, external-tool, and vulnerability lookup results to `ScannerResult`.
 
-`discovery/service.py` composes root validation, policy, bounded traversal, prefix sniffing, and pure classification. `discovery/content.py` is the bounded reopen boundary for admitted artifacts. `scanners/secrets/` filters raw-free candidates into normalized findings. `scanners/sast/` uses a bounded Python AST frontend and intraprocedural taint engine; `scanners/behavior/` uses the same static Python frontend plus bounded line rules for other languages. Both return independent `ScannerResult` objects and never treat source code as authority. [Discovery](DISCOVERY.md), [Secret Scanner](SECRET_SCANNER.md), [SAST](SAST.md), and [Behavior Scanner](BEHAVIOR_SCANNER.md) specify semantics and limits. The package still has no scanner registry, orchestrator, renderer, external adapter, or CLI command.
+`discovery/service.py` composes root validation, policy, bounded traversal, prefix sniffing, and pure classification. `discovery/content.py` is the bounded reopen boundary for admitted artifacts. `scanners/secrets/` filters raw-free candidates into normalized findings. `scanners/sast/` uses a bounded Python AST frontend and intraprocedural taint engine; `scanners/behavior/` uses the same static Python frontend plus bounded line rules for other languages. `scanners/dependencies/` consumes admitted manifests and lockfiles, reconciles versions, queries an optional `VulnerabilityProvider`, and returns normalized findings. Its OSV adapter and cache are leaf modules; parsers and core models never import network code. [Discovery](DISCOVERY.md), [Secret Scanner](SECRET_SCANNER.md), [SAST](SAST.md), [Behavior Scanner](BEHAVIOR_SCANNER.md), and [Dependency Scanner](DEPENDENCY_SCANNER.md) specify semantics and limits. The package still has no scanner registry, orchestrator, renderer, or CLI command.
 
 ## Configuration and profiles
 
@@ -54,7 +54,7 @@ Discovery defaults are configurable: version-control `.gitignore` is separate fr
 
 ## Reporting and CLI direction
 
-Future CLI: `security-auditor scan <path> [--profile quick|standard|deep] [--format console|json|sarif|html] [--output PATH] [--include GLOB] [--exclude GLOB] [--no-ai] [--offline]`. Phase 3 does not expose it.
+Future CLI: `security-auditor scan <path> [--profile quick|standard|deep] [--format console|json|sarif|html] [--output PATH] [--include GLOB] [--exclude GLOB] [--no-ai] [--offline]`. Phase 4 does not expose it.
 
 Scanner → Finding → Finding Store → Reporter. Console is a concise, terminal-safe view. JSON is a versioned machine contract for CI, Codex, and GUI. SARIF maps rules, locations, severity, and fingerprints for GitHub/IDE/CI; unsupported fields remain in versioned properties. HTML is inert: escape all source-derived text, no scanned-content scripts or event handlers, restrictive CSP, no remote assets by default. Reports include scanner coverage, skips, failures, and incomplete status. JSON/SARIF/HTML cannot serialize raw secret values.
 
