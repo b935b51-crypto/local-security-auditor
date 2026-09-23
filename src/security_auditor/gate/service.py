@@ -229,7 +229,8 @@ def validate_report(report: Any) -> None:
     for item in findings:
         finding = _object(item, "id", "fingerprint", "rule_id", "scanner_id", "category", "title",
                           "description", "severity", "confidence", "role", "risk_priority", "location",
-                          "evidence", "rationale", "cwe", "cve", "ai_review", "remediation_proposal_id")
+                          "evidence", "rationale", "cwe", "cve", "ai_review", "remediation_proposal_id",
+                          "dependency", "vulnerability")
         identity = _identifier(finding["id"])
         fingerprint = _fingerprint(finding["fingerprint"])
         if identity in ids or fingerprint in fingerprints:
@@ -262,6 +263,20 @@ def validate_report(report: Any) -> None:
             _text(review["confidence"], values=_CONFIDENCE)
         if finding["remediation_proposal_id"] is not None:
             _identifier(finding["remediation_proposal_id"])
+        if finding["dependency"] is not None:
+            dependency_finding = _object(finding["dependency"], "ecosystem", "name", "version", "direct")
+            _text(dependency_finding["ecosystem"], limit=100)
+            _text(dependency_finding["name"], limit=200)
+            if dependency_finding["version"] is not None:
+                _text(dependency_finding["version"], limit=100)
+            if dependency_finding["direct"] is not None and type(dependency_finding["direct"]) is not bool:
+                raise GateReportError()
+        if finding["vulnerability"] is not None:
+            vulnerability = _object(finding["vulnerability"], "id", "source", "fixed_versions")
+            _text(vulnerability["id"], limit=100)
+            _text(vulnerability["source"], limit=100)
+            for version in _array(vulnerability["fixed_versions"], 100):
+                _text(version, limit=100)
     groups = _array(root["finding_groups"], MAX_GROUPS)
     supporting: set[str] = set()
     for item in groups:
@@ -304,10 +319,12 @@ def validate_report(report: Any) -> None:
                 _text(value, limit=500)
     for review in _array(root["ai_reviews"], 100):
         review = _object(review, "subject_id", "verdict", "confidence", "summary", "rationale",
-                         "missing_context", "limitations")
+                         "supporting_evidence", "contradictory_evidence", "missing_context",
+                         "remediation", "limitations")
         for key in ("subject_id", "verdict", "confidence", "summary"):
             _text(review[key], limit=500)
-        for key in ("rationale", "missing_context", "limitations"):
+        for key in ("rationale", "supporting_evidence", "contradictory_evidence",
+                    "missing_context", "remediation", "limitations"):
             for value in _array(review[key], 100):
                 _text(value, limit=500)
     for proposal in _array(root["remediation_proposals"], 100):

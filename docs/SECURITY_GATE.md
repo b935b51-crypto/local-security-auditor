@@ -4,6 +4,8 @@
 
 The gate accepts schema version `1.1` only. It reads at most 16 MiB from a regular, non-reparse file, rejects duplicate JSON keys and invalid UTF-8, and checks required decision and GUI fields, types, counts, roles, paths, item caps, and report truncation consistency. Unknown major and later minor versions fail closed until compatibility is reviewed. A malformed report returns a fixed error code without printing its contents. Gate output uses fixed reasons and finding fingerprints; it does not echo paths, source, AI text, or secrets.
 
+Policy 1.0 recognizes the built-in scanner/category pairs and 64-character SHA-256 finding fingerprints. An unknown future scanner requires an explicit policy review rather than silently inheriting a permissive rule.
+
 | Status | Default meaning | Exit code |
 | --- | --- | ---: |
 | PASS | Deterministic coverage COMPLETE, no blocking primary finding, no other policy warning | 0 |

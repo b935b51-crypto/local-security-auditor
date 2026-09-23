@@ -168,7 +168,8 @@ class AuditorApp:
         lines = [
             f"Target: {report['scan'].get('target', '')}",
             f"Profile: {report['scan']['profile']}     Coverage: {coverage['overall']}     "
-            f"Gate: {gate.status.value if gate else 'unavailable'}",
+            f"Gate: {gate.status.value if gate else 'unavailable'}     "
+            f"Mode: {'OFFLINE MODE' if report['scan']['offline'] else 'ONLINE SERVICES SELECTED'}",
             f"Files admitted: {report.get('discovery', {}).get('admitted_files', 0)}     "
             f"Skipped: {coverage['skipped_files']}     Unsupported: {coverage['unsupported_files']}",
             "Severity: " + "   ".join(f"{key}: {value}" for key, value in severity.items()),
@@ -176,6 +177,7 @@ class AuditorApp:
             f"Attack path candidates: {len(report['attack_paths'])}     "
             f"Remediation proposals: {len(report['remediation_proposals'])}",
             f"AI reviews: {len(report['ai_reviews'])} / {coverage.get('ai_eligible', 0)} eligible",
+            f"Diagnostics: {len(report['diagnostics'])}",
             "External services: " + ", ".join(f"{name} {'used' if used else 'not used'}"
                                               for name, used in services.items()),
             "", "Top primary findings:",
@@ -192,7 +194,13 @@ class AuditorApp:
 
     def _findings(self, report: dict[str, Any]) -> None:
         subset = self.current_view
-        self._heading(subset, "Deterministic results. AI advice is shown separately.")
+        subtitle = "Deterministic results. AI advice is shown separately."
+        if subset == "Dependencies":
+            summary = report["summary"]["dependency"]
+            subtitle = (f"Exact versions: {summary['exact_versions']}  |  Matches: {summary['matches']}  |  "
+                        f"NO_DATA / OFFLINE_NO_CACHE / QUERY_FAILED: {summary['no_data']}. "
+                        "Missing advisory data never means no vulnerability.")
+        self._heading(subset, subtitle)
         filters = ttk.Frame(self.main, style="Surface.TFrame")
         filters.pack(fill="x", pady=(0, 8))
         self.search_var = tk.StringVar()
@@ -291,6 +299,16 @@ class AuditorApp:
             lines.extend(("", "Relationships", "Group: " + group["id"],
                           "Members: " + ", ".join(m["role"] + ": " + m["fingerprint"]
                                                   for m in group["members"])))
+        dependency = finding.get("dependency")
+        if dependency:
+            vulnerability = finding.get("vulnerability") or {}
+            lines.extend(("", "Dependency and advisory",
+                          f"Ecosystem: {dependency.get('ecosystem') or '—'}",
+                          f"Package: {dependency.get('name') or '—'}  Version: {dependency.get('version') or '—'}",
+                          f"Direct: {dependency.get('direct')}",
+                          f"Advisory: {vulnerability.get('id') or '—'}  Provider: {vulnerability.get('source') or '—'}",
+                          "Provider reported fixed versions: " +
+                          (", ".join(vulnerability.get("fixed_versions") or []) or "not reported")))
         if reviews:
             review = reviews[0]
             lines.extend(("", "AI ADVISORY — never changes the deterministic finding",
@@ -330,7 +348,10 @@ class AuditorApp:
         for review in report["ai_reviews"]:
             lines.extend((f"{review['verdict']} / {review['confidence']}  |  {review['subject_id']}",
                           review["summary"], "Rationale: " + "; ".join(review["rationale"]),
+                          "Supporting evidence: " + "; ".join(review["supporting_evidence"]),
+                          "Contradictory evidence: " + "; ".join(review["contradictory_evidence"]),
                           "Missing context: " + "; ".join(review["missing_context"]),
+                          "Suggested remediation: " + "; ".join(review["remediation"]),
                           "Limitations: " + "; ".join(review["limitations"]), ""))
         self._text_panel("\n".join(lines))
 
@@ -356,11 +377,15 @@ class AuditorApp:
         def update(_event: object = None) -> None:
             proposal = proposals[combo.current()]
             validation = proposal.get("validation") or {}
+            patch = proposal.get("patch_candidate") or {}
             lines = ["HUMAN APPROVAL REQUIRED", f"{proposal['strategy']} / {proposal['status']}",
                      proposal["summary"], "", "Guidance:", *proposal["remediation_steps"],
                      "", "Assumptions:", *proposal["assumptions"], "", "External actions:",
-                     *proposal["external_actions_required"], "", "Static validation: " +
+                     *proposal["external_actions_required"], "", "Patch provenance: " +
+                     str(patch.get("provenance") or proposal.get("provenance") or "none"),
+                     "Static validation: " +
                      validation.get("static_validation_status", "not available"),
+                     "Validation diagnostics: " + ", ".join(validation.get("diagnostics") or []),
                      "Runtime tests: NOT RUN", "", "Public redacted patch:", public_patch_text(proposal)]
             text.configure(state="normal")
             text.delete("1.0", "end")
@@ -511,7 +536,8 @@ class AuditorApp:
                     coverage = report["coverage"]["overall"]
                     color = _BLOCK if coverage in {"FAILED", "ABORTED", "PARTIAL"} else \
                             _PASS if gate.status.value == "PASS" else _WARN if gate.status.value == "WARN" else _BLOCK
-                    self.banner.configure(text=f"COVERAGE {coverage}   |   SECURITY GATE {gate.status.value}",
+                    mode = "   |   OFFLINE MODE" if report["scan"]["offline"] else ""
+                    self.banner.configure(text=f"COVERAGE {coverage}   |   SECURITY GATE {gate.status.value}{mode}",
                                           bg="#f5e6e8" if color == _BLOCK else "#e7f2ed" if color == _PASS else "#fff0d9",
                                           fg=color)
                     self.status_var.set(coverage_message(report))

@@ -63,7 +63,8 @@ class Phase9Tests(unittest.TestCase):
         view["ai_reviews"].append({"subject_id": high[0]["fingerprint"],
                                    "verdict": "LIKELY_FALSE_POSITIVE", "confidence": "HIGH",
                                    "summary": "synthetic advisory", "rationale": [],
-                                   "missing_context": [], "limitations": []})
+                                   "supporting_evidence": [], "contradictory_evidence": [],
+                                   "missing_context": [], "remediation": [], "limitations": []})
         self.assertEqual(evaluate_gate(view).blocking_findings, result.blocking_findings)
 
     def test_secret_blocks_and_behavior_does_not(self) -> None:
@@ -169,6 +170,7 @@ class Phase9Tests(unittest.TestCase):
 
     def test_controller_scans_synthetic_and_can_cancel(self) -> None:
         self.path.write_text("value = 1\n", encoding="utf-8")
+        original = self.path.read_bytes()
         controller = ApplicationController()
         controller.start_scan(self.root, ScanOptions())
         controller.worker.join(timeout=10)
@@ -176,6 +178,7 @@ class Phase9Tests(unittest.TestCase):
         self.assertIsNotNone(controller.public_report)
         self.assertIsNotNone(controller.gate)
         self.assertEqual(controller.gate.status, GateStatus.PASS)
+        self.assertEqual(self.path.read_bytes(), original)
         self.assertFalse(any(controller.public_report["summary"]["external_services"].values()))
         self.assertTrue(any(e.kind == "complete" for e in controller.poll()))
         event = Event(); event.set()
@@ -263,12 +266,23 @@ class Phase9Tests(unittest.TestCase):
         controller.public_report = report_view(report)
         controller.gate = evaluate_gate(controller.public_report)
         app = AuditorApp(root, controller)
+
+        def widget_texts(widget):
+            values = [widget.get("1.0", "end") for _ in (0,) if isinstance(widget, tk.Text)]
+            for child in widget.winfo_children():
+                values.extend(widget_texts(child))
+            return values
+
         for view in _VIEWS:
             app.current_view = view
             app._render()
             root.update_idletasks()
+        app.current_view = "Dashboard"
+        app._render()
+        self.assertIn("OFFLINE MODE", " ".join(widget_texts(app.main)))
         app.current_view = "Remediation"
         app._render()
+        self.assertIn("Patch provenance", " ".join(widget_texts(app.main)))
 
         def button_texts(widget):
             texts = [widget.cget("text") for _ in (0,) if isinstance(widget, ttk.Button)]
@@ -290,6 +304,22 @@ class Phase9Tests(unittest.TestCase):
             app._copy_proposal({"patch_candidate": {"unified_diff": "-" + fake + "\n+safe\n"}})
         self.assertTrue(warning.called)
         self.assertEqual(root.clipboard_get(), public_copy)
+        dependency_view = json.loads(json.dumps(controller.public_report))
+        finding = dependency_view["findings"][0]
+        finding["scanner_id"] = "dependencies"
+        finding["category"] = "dependency"
+        finding["role"] = "primary"
+        finding["dependency"] = {"ecosystem": "PyPI", "name": "demo-package",
+                                  "version": "1.0.0", "direct": True}
+        finding["vulnerability"] = {"id": "OSV-SYNTHETIC", "source": "OSV",
+                                    "fixed_versions": ["1.0.1"]}
+        controller.public_report = dependency_view
+        app.current_view = "Dependencies"
+        app._render()
+        app.table.selection_set("0")
+        app._show_finding()
+        self.assertIn("demo-package", app.detail.get("1.0", "end"))
+        self.assertIn("1.0.1", app.detail.get("1.0", "end"))
         partial = json.loads(json.dumps(controller.public_report))
         partial["coverage"]["overall"] = "PARTIAL"
         controller.public_report = partial
