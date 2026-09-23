@@ -5,6 +5,7 @@ Phase 0 foundation for an offline-first static security auditor of untrusted loc
 Use Python 3.12 with `uv`; the system Python is not modified. From the project root, when Python 3.12 is available:
 
 ```powershell
+$env:PYTHONPATH='src'
 uv run --no-sync --python 3.12 python -m unittest discover -s tests -v
 ```
 

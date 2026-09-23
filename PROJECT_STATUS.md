@@ -3,7 +3,7 @@
 - Last updated: 2026-09-23 (Asia/Taipei)
 - Current phase: Phase 0 — Architecture, Threat Model & Project Foundation
 - Current objective: establish reviewable contracts and a safe starting point for Phase 1
-- Overall status: Phase 0 foundation authored; final validation and Git checkpoint in progress
+- Overall status: Phase 0 completed; Python 3.12 validation remains unavailable on this host
 
 ## Completed
 
@@ -14,7 +14,7 @@
 
 ## In progress
 
-- Final validation and local checkpoint commit.
+- None in Phase 0. Phase 1 has not started.
 
 ## Important decisions
 
@@ -27,14 +27,16 @@
 
 - Tested on Python 3.14.7: `py -3.14 -m unittest discover -s tests -v` with `PYTHONPATH=src` and `PYTHONDONTWRITEBYTECODE=1`: 3 tests passed.
 - Tested on Python 3.14.7: imports of `security_auditor`, `core.models`, `core.contracts`, and `core.config` succeeded.
+- Tested on Python 3.14.7: Markdown relative links and both project Skill frontmatter passed a standard-library validation script.
+- Tested: `git diff --cached --check` passed before the initial commit.
 - Unable to verify on Python 3.12: `py -3.12 --version` reports no suitable runtime. No installation or system modification was made.
-- Built-in skill-creator `quick_validate.py` could not run because the global Python 3.14 environment lacks `yaml`; manual/frontmatter and link checks remain to complete.
+- Built-in skill-creator `quick_validate.py` could not run because the global Python 3.14 environment lacks `yaml`; the standard-library frontmatter and link checks above passed.
 - No scanner behavior or Windows discovery behavior tested, because those phases are not implemented.
 
 ## Current Git / working tree notes
 
-- `main` repository initialized locally after finding no existing Git repository. All project files are new; no pre-existing work was overwritten. The initial checkpoint is pending at this update. Inspect `git status` and `git log` for current state.
+- `main` repository initialized locally after finding no existing Git repository. All project files were new; no pre-existing work was overwritten. Initial checkpoint: `28b0338` (`feat: establish security auditor phase 0 foundation`). Inspect `git status` and `git log` for current state. Commit identity was supplied only for that command as `Codex <codex@localhost>`; global Git identity remains unset.
 
 ## Next step
 
-Finish Phase 0 validation and create the local checkpoint. Then, only upon a new request, begin Phase 1 — Safe File Discovery & Classification.
+Only upon a new request, begin Phase 1 — Safe File Discovery & Classification. First verify Python 3.12 when available; do not change system Python implicitly.
