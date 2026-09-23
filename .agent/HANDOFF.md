@@ -6,4 +6,4 @@ No active handoff.
 
 ## Recommended Next Action
 
-Read `AGENTS.md` and `PROJECT_STATUS.md`, inspect Git and the repository, then follow the current user request.
+Read `AGENTS.md`, `PROJECT_STATUS.md`, and `docs/DISCOVERY.md`; inspect Git and the implementation, then follow the current user request. Phase 1 is complete with the verification limits recorded in `PROJECT_STATUS.md`.
