@@ -59,6 +59,8 @@ def render(report: ScanReport) -> str:
                     f"<p>Evidence summary: {_e(f['evidence']['summary'])}</p>",
                     f"<p>CWE/CVE: {_e(', '.join(f['cwe'] + f['cve']) or 'none')}</p>",
                     f"<p>Remediation: {_e(f['remediation']['recommendation'])}</p>"])
+        if f["remediation_proposal_id"]:
+            out.append(f"<p>Related remediation proposal: {_e(f['remediation_proposal_id'])}</p>")
         if f["ai_review"]:
             out.append(f"<p>AI advisory: {_e(f['ai_review']['verdict'])} "
                        f"({_e(f['ai_review']['confidence'])})</p>")

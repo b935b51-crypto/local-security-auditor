@@ -12,6 +12,8 @@ The planner processes primary findings in bounded priority order, at most 50 pro
 
 ## Validation
 
+In the canonical finding view, a supporting signal's `remediation_proposal_id` points to its group's primary proposal when one exists. It does not create an independent patch.
+
 Line edits are checked for overlap, range, distance from the finding, size, changed-line and hunk budgets. The tool applies edits **only in memory**, preserving supported UTF-8/BOM and LF/CRLF form. Python is checked with bounded `ast.parse`, never imported or executed. The existing bounded Python taint engine scans original and proposed text in memory. The target rule must be present before, reduced after, and no new supported HIGH/CRITICAL finding may appear. New lower-severity findings make validation partial. Suppression comments, obvious dangerous APIs, new endpoints, deletion/comment-out of code, missing declarations, and credential-bearing changed lines are rejected conservatively. These are heuristics; they do not prove functional correctness.
 
 `VALIDATED_STATICALLY` means the edit applies, syntax parses, the supported target finding disappears, and no supported new static finding appears. `PARTIAL_VALIDATION` records assumptions or a new lower-severity finding. `REJECTED` candidates are not published as patches. **Runtime tests: NOT_RUN** in every case. Static finding disappearance never means the application works or that a vulnerability is conclusively fixed.

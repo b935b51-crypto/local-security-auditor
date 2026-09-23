@@ -14,7 +14,7 @@
 
 ## Verification
 
-- Full Phase 8 regression ran PYTHONDONTWRITEBYTECODE=1 with PYTHONPATH=src: py -3.14 -m unittest discover -s tests -q — 118 tests, 116 passed, 2 skipped (real Windows symlink creation and gated live Gemini). Phase 8 tests use inert synthetic files and a fake AI provider.
+- Full Phase 8 regression ran PYTHONDONTWRITEBYTECODE=1 with PYTHONPATH=src: py -3.14 -m unittest discover -s tests -q — 119 tests, 117 passed, 2 skipped (real Windows symlink creation and gated live Gemini). Phase 8 tests use inert synthetic files and a fake AI provider.
 - Ran py -3.14 -m security_auditor --help and --version successfully. Parsed the example TOML and report JSON schemas; Markdown relative links resolved with zero missing targets; git diff --check returned 0.
 - A Phase 8 offline CLI smoke scanned a temporary inert Python file using --propose-fixes and JSON output: schema 1.1, deterministic statically validated proposal, approval required, and identical target hash before/after. No Phase 8 live Gemini or OSV call occurred.
 - Prior Phase 6 live validation remains: exactly one Gemini 3.8 Flash request passed in the earlier checkpoint. Phase 7 sent no live Gemini or OSV request.

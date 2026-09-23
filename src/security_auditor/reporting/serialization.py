@@ -57,7 +57,7 @@ def iso(value: datetime) -> str:
 
 
 def finding_view(f: Finding, roles: dict[str, str], priorities: dict[str, str],
-                 reviews: dict[str, tuple[str, str]]) -> dict:
+                 reviews: dict[str, tuple[str, str]], proposal_refs: dict[str, str]) -> dict:
     location = f.location
     dependency = f.dependency
     vulnerability = f.vulnerability
@@ -68,6 +68,7 @@ def finding_view(f: Finding, roles: dict[str, str], priorities: dict[str, str],
         "description": safe_text(f.description), "severity": f.severity.value,
         "confidence": f.confidence.value,
         "role": roles.get(f.fingerprint, "primary"),
+        "remediation_proposal_id": proposal_refs.get(f.fingerprint),
         "risk_priority": priorities.get(f.fingerprint),
         "location": {"path": safe_path(location.path), "start_line": location.start_line,
                      "start_column": location.start_column, "end_line": location.end_line,
@@ -108,6 +109,15 @@ def report_view(report: ScanReport) -> dict:
             priorities[group.primary] = priorities[group.id]
     reviews = {r.subject_id: (r.verdict.value, r.confidence.value) for r in report.ai_reviews
                if r.subject_type.value == "finding"}
+    proposal_by_finding = {p.finding_id: p.proposal_id for p in report.remediation_proposals}
+    proposal_refs = {f.fingerprint: proposal_by_finding[f.id] for f in report.findings
+                     if f.id in proposal_by_finding}
+    for group in report.finding_groups:
+        primary_proposal = proposal_refs.get(group.primary)
+        if primary_proposal:
+            for fingerprint, role in group.members:
+                if role.value == "supporting":
+                    proposal_refs[fingerprint] = primary_proposal
     return {
         "schema_version": report.schema_version,
         "tool": {"name": report.tool_name, "version": report.tool_version},
@@ -162,7 +172,7 @@ def report_view(report: ScanReport) -> dict:
                          "count": d.count} for d in report.diagnostics],
         "rules": [{"id": safe_text(r.id, limit=128), "title": safe_text(r.title, limit=500),
                    "help_uri": safe_uri(r.help_uri)} for r in report.rules],
-        "findings": [finding_view(f, roles, priorities, reviews) for f in report.findings],
+        "findings": [finding_view(f, roles, priorities, reviews, proposal_refs) for f in report.findings],
         "finding_groups": [{"id": g.id, "primary": g.primary,
                             "members": [{"fingerprint": fp, "role": role.value} for fp, role in g.members]}
                            for g in report.finding_groups],

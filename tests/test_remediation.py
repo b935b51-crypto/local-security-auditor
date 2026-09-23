@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from security_auditor.ai.providers.base import ProviderResponse
 from security_auditor.core.config import AuditConfig, RemediationSettings, SASTLimits, VulnerabilityLimits, load_config
+from security_auditor.correlation.models import FindingGroup, FindingRole
 from security_auditor.orchestrator import ScanOrchestrator, ScanRequest
 from security_auditor.remediation.models import ProposalStatus, RemediationStrategy
 from security_auditor.remediation.patching import LineEdit, validate_patch
@@ -81,6 +82,23 @@ class RemediationTests(unittest.TestCase):
         proposal = next(p for p in report.remediation_proposals if p.patch_candidate)
         self.assertEqual(proposal.status, ProposalStatus.VALIDATED_STATICALLY)
         self.assertEqual(self.path.read_bytes(), source)
+
+    def test_supporting_signal_refers_to_primary_proposal(self):
+        self.path.write_text("import os\nuser = input()\nos.system(user)\n", encoding="utf-8")
+        report = self.scan()
+        primary = next(f for f in report.findings if f.rule_id == "SAST.PYTHON.COMMAND_INJECTION")
+        signal = next(f for f in report.findings if f.rule_id == "BEHAVIOR.SHELL_EXEC")
+        proposal = next(p for p in report.remediation_proposals if p.finding_id == primary.id)
+        report = replace(report,
+            finding_groups=(FindingGroup("synthetic-group", primary.fingerprint,
+                ((primary.fingerprint, FindingRole.PRIMARY),
+                 (signal.fingerprint, FindingRole.SUPPORTING)), ()),),
+            roles=((signal.fingerprint, "supporting"),), remediation_proposals=(proposal,))
+        data = json.loads(json_report.render(report))
+        supporting = [f for f in data["findings"] if f["role"] == "supporting"]
+        self.assertTrue(supporting)
+        proposal_ids = {p["proposal_id"] for p in data["remediation_proposals"]}
+        self.assertTrue(all(f["remediation_proposal_id"] in proposal_ids for f in supporting))
 
     def test_ai_patch_requires_separate_opt_in_and_uses_fake_provider(self):
         source = b"import yaml\ndata = input()\nresult = yaml.load(data)\n"
