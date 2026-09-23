@@ -37,6 +37,7 @@ _DIAGNOSTIC_TEXT = {
     "SECRET_SCAN_ABORTED": "secret scan elapsed time limit reached",
     "SECRET_DISCOVERY_INCOMPLETE": "file discovery was incomplete",
     "SECRET_PRIVATE_KEY_UNTERMINATED": "private-key begin marker has no matching end marker",
+    "SECRET_FINGERPRINT_COLLISION": "redacted finding anchors collided; distinct safe identities were assigned",
 }
 
 
@@ -96,6 +97,7 @@ class SecretScanner:
                                  summary=ScannerSummary(completeness="complete"))
         started = monotonic()
         findings: list[Finding] = []
+        used_fingerprints: set[str] = set()
         diagnostics: list[ScannerDiagnostic] = []
         diagnosed: set[str] = set()
 
@@ -150,6 +152,7 @@ class SecretScanner:
                 del data
             scanned += 1
             file_candidates: list[tuple[int, SecretCandidate]] = []
+            safe_path = artifact.path
             rule_counts: dict[str, int] = {}
             inside_key = False
             file_limited = False
@@ -204,6 +207,12 @@ class SecretScanner:
                     admitted.append(candidate)
                 chosen, dropped = _deduplicate(admitted)
                 duplicates += dropped
+                for candidate in chosen:
+                    # A target may put the matched value in its filename too.
+                    # Keep the original path only for the bounded reader.
+                    matched_value = line[candidate.start:candidate.end]
+                    if matched_value and matched_value in safe_path:
+                        safe_path = safe_path.replace(matched_value, "[REDACTED]")
                 if len(file_candidates) + len(chosen) > self.limits.max_findings_per_file:
                     allowed = self.limits.max_findings_per_file - len(file_candidates)
                     chosen = chosen[:allowed]
@@ -226,14 +235,28 @@ class SecretScanner:
                     candidate = replace(candidate, severity=Severity.HIGH, confidence=Confidence.HIGH)
                 elif candidate.label == "aws_secret_access_key" and any(abs(line_number - other) <= 5 for other in aws_id_lines):
                     candidate = replace(candidate, severity=Severity.HIGH, confidence=Confidence.HIGH)
-                fingerprint = finding_fingerprint(candidate.rule_id, artifact.path, line_number,
+                fingerprint = finding_fingerprint(candidate.rule_id, safe_path, line_number,
                                                   candidate.start + 1, candidate.family, candidate.label)
+                if fingerprint in used_fingerprints:
+                    note("SECRET_FINGERPRINT_COLLISION")
+                    state = "partial" if state == "complete" else state
+                    identity = artifact.identity
+                    discriminator = (f"{identity.volume_id}:{identity.file_id}" if identity is not None
+                                     and identity.file_id is not None else str(considered))
+                    suffix = 0
+                    while fingerprint in used_fingerprints:
+                        fingerprint = finding_fingerprint(
+                            candidate.rule_id, safe_path, line_number, candidate.start + 1,
+                            candidate.family, f"{candidate.label}|{discriminator}|{suffix}",
+                        )
+                        suffix += 1
+                used_fingerprints.add(fingerprint)
                 finding = Finding(
                     id=fingerprint[:16], rule_id=candidate.rule_id, scanner_id=self.metadata.id,
                     category="secret", title=RULE_BY_ID[candidate.rule_id].title,
                     description=RULE_BY_ID[candidate.rule_id].description,
                     severity=candidate.severity, confidence=candidate.confidence,
-                    location=Location(artifact.path, line_number, candidate.start + 1,
+                    location=Location(safe_path, line_number, candidate.start + 1,
                                       line_number, candidate.end + 1),
                     evidence=Evidence("redacted_secret", candidate.preview,
                                       (("family", candidate.family), ("length", str(candidate.value_length)),

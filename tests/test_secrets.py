@@ -187,6 +187,21 @@ class SecretScannerTests(unittest.TestCase):
         self.assertEqual(failed_result.status, "failed")
         self.assertEqual(failed_result.summary.completeness, "failed")
 
+    def test_matched_secret_in_filename_is_redacted_and_collision_is_visible(self):
+        first = "ghp_" + ("A1b2C3d4" * 5)[:36]
+        second = "ghp_" + ("Z9y8X7w6" * 5)[:36]
+        for value in (first, second):
+            self.write(f"{value}.env", value + "\n")
+        result = self.scan()
+        self.assertEqual(len(result.findings), 2)
+        self.assertEqual(len({f.fingerprint for f in result.findings}), 2)
+        self.assertEqual(result.status, "partial")
+        self.assertIn("SECRET_FINGERPRINT_COLLISION", {d.code for d in result.diagnostics})
+        for value in (first, second):
+            self.assertFalse(value in repr(result), "matched filename credential reached result")
+            self.assertFalse(value in json.dumps(asdict(result), default=str),
+                             "matched filename credential reached serialized result")
+
     def test_detector_error_and_log_leakage(self):
         raw = "A1b2C3d4E5f6G7h8I9j0K1l2"
         self.write("config.env", f"CLIENT_SECRET={raw}\n")

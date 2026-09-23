@@ -25,12 +25,12 @@
 - Python baseline remains `>=3.12,<3.13` with uv and no runtime dependencies. Python 3.12 is absent on this host.
 - Target code is hostile data, never executed or imported. The scanner reads only Phase 1 admitted artifacts; reparse traversal remains denied.
 - Redaction precedes `Finding`; raw secret values never intentionally enter candidates, findings, diagnostics, logs, or public fingerprints. Python memory zeroization cannot be guaranteed.
-- Public fingerprints use rule, relative path, position, family, and safe label, not a secret hash. Cross-file reuse correlation waits for safe HMAC key management.
+- Public fingerprints use rule, redacted relative path, position, family, and safe label, not a secret hash. A matched value in a filename is masked before `Finding`; redacted-path collisions get a safe distinct identity and diagnostic. Cross-file reuse correlation waits for safe HMAC key management.
 - Oversize files and overlong lines are skipped with incomplete status. No active validation, Git history inspection, network lookup, external secret tool, AI, or Phase 3 code is present.
 
 ## Verification
 
-- Tested on Python 3.14.7: `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; py -3.14 -m unittest discover -s tests -v` — 36 tests, 35 passed, 1 skipped (real Windows symlink creation unavailable). Includes serialization/private-key leakage, no-log rule error, placeholders, hash/UUID, UTF-16, changed file, limits, adversarial long line, provider shapes, and completeness.
+- Tested on Python 3.14.7: `$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'; py -3.14 -m unittest discover -s tests -v` — 37 tests, 36 passed, 1 skipped (real Windows symlink creation unavailable). Includes serialization/private-key/filename leakage, no-log rule error, placeholders, hash/UUID, UTF-16, changed file, limits, adversarial long line, provider shapes, and completeness.
 - Tested on Python 3.14.7: package/SecretScanner import, example config load, Python AST parses, Markdown relative links, and both project Skill frontmatter passed a standard-library validation script.
 - Tested: `git diff --cached --check` passed before implementation checkpoint. No lint or formatter is configured.
 - Unable to verify on Python 3.12: `py -3.12 --version` reports no suitable runtime. No system/global Python change was made. **Python 3.12 baseline not yet verified.**
