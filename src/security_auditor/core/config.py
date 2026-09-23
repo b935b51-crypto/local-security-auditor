@@ -32,6 +32,39 @@ DEFAULT_EXCLUDE = (
     "build/", "coverage/", "__pycache__/", ".cache/",
 )
 
+SECRET_HARD_CAPS = {
+    "max_file_bytes": 4 * 1024 * 1024,
+    "max_total_bytes": 256 * 1024 * 1024,
+    "max_line_bytes": 64 * 1024,
+    "max_matches_per_rule_per_file": 1000,
+    "max_findings_per_file": 1000,
+    "max_findings_total": 10000,
+    "max_elapsed_seconds": 3600,
+}
+
+
+@dataclass(frozen=True, slots=True)
+class SecretLimits:
+    enabled: bool = True
+    max_file_bytes: int = 1024 * 1024
+    max_total_bytes: int = 64 * 1024 * 1024
+    max_line_bytes: int = 16 * 1024
+    max_matches_per_rule_per_file: int = 100
+    max_findings_per_file: int = 100
+    max_findings_total: int = 1000
+    max_elapsed_seconds: int = 300
+    enable_entropy: bool = True
+    enable_generic_assignment: bool = True
+
+    def __post_init__(self) -> None:
+        for key, ceiling in SECRET_HARD_CAPS.items():
+            value = getattr(self, key)
+            if type(value) is not int or not 1 <= value <= ceiling:
+                raise ValueError(f"{key} outside safe range")
+        for key in ("enabled", "enable_entropy", "enable_generic_assignment"):
+            if type(getattr(self, key)) is not bool:
+                raise ValueError(f"{key} must be boolean")
+
 
 @dataclass(frozen=True, slots=True)
 class DiscoveryLimits:
@@ -58,17 +91,19 @@ class AuditConfig:
     follow_symlinks: bool = False
     follow_reparse_points: bool = False
     limits: DiscoveryLimits = DiscoveryLimits()
+    secrets: SecretLimits = SecretLimits()
 
 
 def load_config(path: Path) -> AuditConfig:
     """Load operator-selected TOML; rejects unknown keys and unsafe limit increases."""
     with path.open("rb") as stream:
         raw = tomllib.load(stream)
-    if set(raw) - {"scan", "discovery"}:
+    if set(raw) - {"scan", "discovery", "secrets"}:
         raise ValueError("unknown top-level config key")
     scan = raw.get("scan", {})
     discovery = raw.get("discovery", {})
-    if not isinstance(scan, dict) or not isinstance(discovery, dict):
+    secrets = raw.get("secrets", {})
+    if not isinstance(scan, dict) or not isinstance(discovery, dict) or not isinstance(secrets, dict):
         raise ValueError("invalid config table")
     if set(scan) - {"profile", "offline"} or set(discovery) - {
         "include", "exclude", "default_exclude", "respect_gitignore",
@@ -78,6 +113,10 @@ def load_config(path: Path) -> AuditConfig:
         "max_single_text_read", "max_line_length", "max_elapsed_seconds",
     }:
         raise ValueError("unknown config key")
+    if set(secrets) - set(SECRET_HARD_CAPS) - {
+        "enabled", "enable_entropy", "enable_generic_assignment",
+    }:
+        raise ValueError("unknown secrets config key")
     profile = ScanProfile(scan.get("profile", "standard"))
     offline = scan.get("offline", True)
     respect_gitignore = discovery.get("respect_gitignore", False)
@@ -114,7 +153,9 @@ def load_config(path: Path) -> AuditConfig:
         ):
             raise ValueError(f"invalid {key} patterns")
         patterns[key] = tuple(value)
+    secret_values = {key: secrets.get(key, getattr(SecretLimits(), key))
+                     for key in SecretLimits.__dataclass_fields__}
     return AuditConfig(
         profile=profile, offline=offline, respect_gitignore=respect_gitignore,
-        limits=DiscoveryLimits(**values), **patterns,
+        limits=DiscoveryLimits(**values), secrets=SecretLimits(**secret_values), **patterns,
     )

@@ -20,3 +20,15 @@ follow_reparse_points = false
 include = []
 default_exclude = [".git/", "node_modules/", ".venv/", "venv/", "dist/", "build/", "coverage/", "__pycache__/", ".cache/"]
 exclude = [] # security-scan specific ignores; independent of .gitignore
+
+[secrets]
+enabled = true
+max_file_bytes = 1048576
+max_total_bytes = 67108864
+max_line_bytes = 16384
+max_matches_per_rule_per_file = 100
+max_findings_per_file = 100
+max_findings_total = 1000
+max_elapsed_seconds = 300
+enable_entropy = true
+enable_generic_assignment = true

@@ -1,0 +1,33 @@
+# Native secret scanner — Phase 2
+
+## Scope and entry point
+
+`SecretScanner.scan_discovery(session, discovery)` consumes only `FileArtifact` objects admitted by Phase 1, uses the canonical discovery root, and propagates incomplete discovery coverage. `scan(session, artifacts)` implements the synchronous `Scanner` protocol for an orchestrator that already selected admitted artifacts. Neither entry traverses the tree. `discovery.content.read_admitted_artifact` rechecks relative components, containment, reparse status, regular-file type, device/file identity, size, and modification time before and after a bounded read. These checks reduce but cannot eliminate concurrent Windows filesystem races.
+
+Only Phase 1 `TEXT` artifacts with a known encoding are eligible. Archives, binaries, executables, unknown/undecodable content, and Phase 1 skips are not secret-scanned. Source, scripts, env, config, manifests, lockfiles, CI, documentation, key-material-like text, and certificate-like text (which may contain a private key) can be scanned. Public certificates produce no finding. Discovery controls vendor/build excludes. The scanner does not inspect Git history, archives, process environment, credential stores, or live services.
+
+## Detection and precision
+
+Evaluation order is private-key marker, provider shape, credential-bearing connection URL, JWT structure, assignment, then contextual entropy. Stable rule metadata is in `scanners/secrets/rules.py`. Provider subsets cover GitHub `gh[pousr]_`, AWS `AKIA`/`ASIA` IDs, Stripe `sk_live_`/`sk_test_`, Slack `xox…-`, and GitLab `glpat-`. Shape is not proof of validity. An AWS ID alone is LOW severity/MEDIUM confidence; a nearby strong `AWS_SECRET_ACCESS_KEY` assignment raises it to HIGH/HIGH.
+
+Assignment detection is line based for common Python, JS, JSON, YAML, TOML, env, and INI syntax. It requires a literal with sufficient length/diversity. Entropy strengthens assessment but never acts alone. JWT detection checks bounded base64url header/payload JSON object shape without signature verification. Credential URL detection covers postgres/postgresql, MySQL, MongoDB, and Redis user:password forms. Public certificates and SSH public keys are excluded. A private-key BEGIN marker produces one finding; its body never enters candidate metadata.
+
+Exact placeholders (`YOUR_API_KEY`, `CHANGE_ME`, `FAKE_TOKEN`, repeated `x`/`0`, etc.), empty/null values, standard UUIDs, environment references, and secret-manager references are suppressed. Hash/checksum/digest/integrity/commit/etag context gates generic rules but does not silence a provider-specific shape. Documentation, examples, and tests remain eligible; documentation wording lowers generic-assignment confidence. Synthetic provider-shaped values can still be reported. This rule set favors precision over exhaustive coverage.
+
+## Redaction and identity
+
+Raw bytes/text exist only during bounded reading and detection. Detectors immediately construct raw-free `SecretCandidate` objects containing only rule, span, family, length, safe label, and fixed redacted preview. Python cannot guarantee memory zeroization; the design minimizes lifetime and propagation. `Finding`, `Evidence`, diagnostics, exception messages, logs, and results never intentionally contain matched values. Evidence uses `[REDACTED CREDENTIAL]`, `[REDACTED PASSWORD]`, or `[REDACTED PRIVATE KEY]` and safe structural fields. `sanitize_url_for_evidence()` discards userinfo, host, path, fragment, and query names/values, retaining an allowlisted scheme and query count. Future reporters must recheck redaction and escape target-controlled text.
+
+The public fingerprint is SHA-256 over length-prefixed schema version, rule ID, root-relative path, line/column, family, and safe label. It never hashes the secret. A value change at the same anchor retains identity; a move changes it. Cross-file secret reuse correlation is deferred because no safe persistent HMAC-key lifecycle exists. Overlapping candidates on one line are deduplicated by detector precedence; distinct spans remain separate. Ordering is deterministic by artifact, line, column, and rule. `created_at` and elapsed-time checks are runtime dependent.
+
+## Assessment, budgets, and completeness
+
+Severity means potential impact if real; confidence means certainty from static evidence. HIGH/HIGH applies to private-key markers, strong provider shapes, and credentialed URLs. AWS IDs alone are LOW/MEDIUM; JWT is MEDIUM/MEDIUM; strong generic assignments usually MEDIUM/MEDIUM; weaker password assignments MEDIUM/LOW; contextual entropy LOW/LOW. Findings do not claim credentials are active or compromised.
+
+Operator-selected `[secrets]` config has hard ceilings and cannot disable redaction or enable network validation. Defaults: full-file scan up to 1 MiB per file, 64 MiB total, 16 KiB per line, 100 matches per rule per file, 100 findings per file, 1,000 findings total, and 300 seconds. Oversize files are skipped, not prefix-scanned; overlong lines are skipped. Per-file limits produce `PARTIAL`; global byte/finding/time limits produce `ABORTED`; invalid discovery produces `FAILED`; fully covered eligible artifacts produce `COMPLETE`. Time checks are best effort between filesystem calls. Regexes are separate bounded patterns and run only on capped lines.
+
+`ScannerResult.summary` counts considered/scanned/skipped artifacts, bytes, candidates, findings, placeholder and overlap suppressions, limit hits, and completeness. Fixed-code diagnostics contain no source or exception text: `SECRET_FILE_TOO_LARGE`, `SECRET_SCAN_BYTE_BUDGET_REACHED`, `SECRET_MATCH_LIMIT_REACHED`, `SECRET_LINE_TOO_LONG`, `SECRET_DECODE_UNAVAILABLE`, `SECRET_READ_FAILED`, `SECRET_RULE_ERROR`, `SECRET_SCAN_ABORTED`, `SECRET_DISCOVERY_INCOMPLETE`, and `SECRET_PRIVATE_KEY_UNTERMINATED`. Each code appears at most once to bound diagnostic memory. Deliberately excluded nontext files count as skipped without making coverage partial.
+
+## Known limits
+
+Provider formats are conservative subsets and can change independently of this offline rule set. The scanner cannot establish validity, ownership, exposure history, or exploitability. Generic line rules may miss multiline assignments, unusual quoting/encodings, and secrets without context. A private-key BEGIN marker can report an incomplete or synthetic block. Target-controlled filenames remain root-relative in findings and need display escaping/redaction in reporters. The path-based reopen is not a race-free Windows sandbox; UNC/junction/long-path behavior and Python 3.12 remain unverified on this host. No network requests, third-party secret tools, AI, SAST, or active credential validation are used.

@@ -221,8 +221,31 @@ class Finding:
 class ScannerResult:
     scanner: ScannerMetadata
     findings: tuple[Finding, ...] = ()
-    status: Literal["completed", "partial", "skipped", "failed"] = "completed"
-    diagnostics: tuple[str, ...] = ()  # sanitized, no source/secret bytes
+    status: Literal["completed", "partial", "aborted", "skipped", "failed"] = "completed"
+    diagnostics: tuple[ScannerDiagnostic, ...] = ()
+    summary: ScannerSummary | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ScannerDiagnostic:
+    code: str
+    message: str  # fixed, sanitized text; no exception or source content
+    path: str | None = None
+    exception_kind: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ScannerSummary:
+    artifacts_considered: int = 0
+    artifacts_scanned: int = 0
+    artifacts_skipped: int = 0
+    bytes_scanned: int = 0
+    candidate_matches: int = 0
+    findings_emitted: int = 0
+    placeholders_suppressed: int = 0
+    duplicates_suppressed: int = 0
+    limits_hit: int = 0
+    completeness: Literal["complete", "partial", "aborted", "failed"] = "complete"
 
 
 @dataclass(frozen=True, slots=True)

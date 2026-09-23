@@ -4,7 +4,7 @@
 | --- | --- | --- |
 | 0 | Architecture, threat model, foundation | contracts/docs, basic tests, local Git checkpoint; no scanner |
 | 1 | Safe File Discovery & Classification | implemented; bounded traversal and classification, with Windows symlink/junction/UNC verification gaps recorded in [Discovery](DISCOVERY.md) |
-| 2 | Secret Scanner | deterministic redacted findings and regression fixtures |
+| 2 | Secret Scanner | implemented: deterministic redacted findings, bounded reads, synthetic leakage regressions; verification limits in [Secret Scanner](SECRET_SCANNER.md) |
 | 3 | SAST + Dangerous Behavior Scanner | bounded parsing, rule provenance, no target execution |
 | 4 | Dependency / CVE Scanner | manifest/lock parsing, offline advisory strategy, optional online adapter |
 | 5 | Finding Correlation + Risk Engine | stable deduplication, grouping, explainable risk |
@@ -13,4 +13,4 @@
 | 8 | Remediation + Patch Proposal | validation and human approval before applying |
 | 9 | GUI + Codex Integration | local workflow integration, no weakened boundaries |
 
-Phase 1 is complete as an implementation milestone, with its verification limits recorded in [Discovery](DISCOVERY.md) and `PROJECT_STATUS.md`. Phase 2 requires a new request. Later phases may split by ecosystem if complexity warrants it, without changing the security boundary.
+Phases 1 and 2 are complete as implementation milestones, with their verification limits recorded in [Discovery](DISCOVERY.md), [Secret Scanner](SECRET_SCANNER.md), and `PROJECT_STATUS.md`. Phase 3 requires a new request. Later phases may split by ecosystem if complexity warrants it, without changing the security boundary.

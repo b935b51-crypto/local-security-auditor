@@ -1,8 +1,8 @@
-# Architecture — Phase 1 baseline
+# Architecture — Phase 2 baseline
 
 ## Invariant and data flow
 
-**TARGET CODE MUST NEVER BE EXECUTED AUTOMATICALLY.** The selected repository is untrusted input. The core runs offline; only explicit, separate adapters may access a network. Phase 1 implements the bounded discovery/classification stage. No vulnerability scanner or report pipeline runs yet.
+**TARGET CODE MUST NEVER BE EXECUTED AUTOMATICALLY.** The selected repository is untrusted input. The core runs offline; only explicit, separate adapters may access a network. Phase 1 implements bounded discovery/classification. Phase 2 adds a native offline Secret Scanner over admitted text artifacts. No report pipeline runs yet.
 
 ```text
 CLI/UI -> policy + bounded discovery -> classified FileArtifact
@@ -42,7 +42,7 @@ Dependency direction: `core` knows no scanner, CLI, reporter, network client, or
 
 `ScanTarget`, `ScanSession`, `ScanProfile`, `FileArtifact`, `LanguageInfo`, `ScannerMetadata`, `Finding`, `Evidence`, `Location`, `Severity`, `Confidence`, `RuleReference`, `DependencyArtifact`, `VulnerabilityReference`, `Remediation`, `ScannerResult`, and `ReportSummary` are in `core/models.py`. `Scanner` and `AsyncScanner` protocols are in `core/contracts.py`. A future adapter runner normalizes synchronous, asynchronous, external-tool, and vulnerability lookup results to `ScannerResult`.
 
-`discovery/service.py` composes root validation, policy, bounded traversal, prefix sniffing, and pure classification. [Discovery details](DISCOVERY.md) specify semantics and known limits. The package still has no scanner registry, orchestrator, renderer, external adapter, or CLI command.
+`discovery/service.py` composes root validation, policy, bounded traversal, prefix sniffing, and pure classification. `discovery/content.py` is the bounded reopen boundary for admitted artifacts. `scanners/secrets/` is the first synchronous plugin: detectors return raw-free candidates, then the plugin filters, deduplicates, fingerprints, and constructs normalized findings. [Discovery details](DISCOVERY.md) and [Secret Scanner](SECRET_SCANNER.md) specify semantics and limits. The package still has no scanner registry, orchestrator, renderer, external adapter, or CLI command.
 
 ## Configuration and profiles
 
