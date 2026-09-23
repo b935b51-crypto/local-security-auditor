@@ -6,12 +6,12 @@
 
 ## Filesystem boundary, especially Windows
 
-- Capture the selected root as a canonical absolute path and filesystem identity before traversal. Keep every discovered item root-relative for output; never trust `..`, drive-prefixed, device, or UNC-looking names from target metadata.
-- Default: do not follow symbolic links, NTFS junctions, mount points, or any reparse point. Inspect link metadata only, classify/skip it, and never recurse through it. Phase 1 must use native metadata/identity checks and a visited `(volume, file ID)` set for directories; path strings alone cannot stop loops. Revalidate identity and root containment at open time to reduce time-of-check/time-of-use races.
+- Capture the selected root as a canonical absolute path and filesystem identity before traversal. Keep every discovered item root-relative for output; never trust `..`, drive-prefixed, device, or UNC-looking names from target metadata. Phase 1 implements bounded path-based checks; see [Discovery](DISCOVERY.md) for the remaining race and filesystem limits.
+- Default: do not follow symbolic links, NTFS junctions, mount points, or any reparse point. Inspect link metadata only, classify/skip it, and never recurse through it. Phase 1 uses fresh `os.stat()` device/file IDs and a visited identity set for directories, with a documented path fallback. It revalidates identity and root containment at open time to reduce time-of-check/time-of-use races.
 - Never cross the selected drive/volume or resolved root through a reparse point. Future opt-in traversal requires explicit root-boundary verification and separate threat review. UNC roots require explicit support and the same boundary checks; do not silently reinterpret `\\server\share` or Windows device paths. Long paths should be handled with native APIs rather than unsafe string truncation.
 - Normalize separators and case for comparison on Windows while preserving a display path; Unicode normalization is for display/duplicate handling only and must not change the actual filesystem identity. Handle case-fold collisions and reserved DOS names conservatively. Reject ambiguous path forms.
 - Alternate Data Streams are **not scanned in the baseline**. Report the coverage gap; do not treat a colon-bearing stream path as an ordinary file. Detect `.ps1`, `.psm1`, `.bat`, `.cmd` as scripts and PE magic (`MZ`) as binary/executable data, without running them.
-- Cap depth, file count, per-file bytes, cumulative bytes, parse time, and CPU/memory work. Phase 0 defines initial file-count/size/depth limits; Phase 1 must add cumulative and time budgets. Avoid archive expansion by default, so compressed bombs remain inert.
+- Cap depth, file count, per-file bytes, cumulative bytes, elapsed time, and memory used for directory sorting. Phase 1 implements these discovery budgets; future parsers need separate parse/CPU budgets. Avoid archive expansion by default, so compressed bombs remain inert.
 
 ## Configuration and execution authority
 

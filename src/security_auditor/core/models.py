@@ -29,6 +29,50 @@ class ScanProfile(StrEnum):
     DEEP = "deep"
 
 
+class ContentKind(StrEnum):
+    TEXT = "text"
+    BINARY = "binary"
+    UNKNOWN = "unknown"
+
+
+class ArtifactKind(StrEnum):
+    SOURCE_CODE = "source_code"
+    SCRIPT = "script"
+    CONFIG = "config"
+    DEPENDENCY_MANIFEST = "dependency_manifest"
+    LOCKFILE = "lockfile"
+    CI_CONFIG = "ci_config"
+    CONTAINER_CONFIG = "container_config"
+    DOCUMENTATION = "documentation"
+    ARCHIVE = "archive"
+    BINARY = "binary"
+    EXECUTABLE = "executable"
+    CERTIFICATE_LIKE = "certificate_like"
+    KEY_MATERIAL_LIKE = "key_material_like"
+    ENV_FILE = "env_file"
+    UNKNOWN = "unknown"
+
+
+class ScriptKind(StrEnum):
+    POWERSHELL = "powershell"
+    BATCH = "batch"
+    SHELL = "shell"
+    PYTHON = "python"
+    JAVASCRIPT = "javascript"
+    OTHER = "other"
+
+
+class ManifestKind(StrEnum):
+    PYTHON = "python"
+    NODE = "node"
+    RUST = "rust"
+    GO = "go"
+    DOTNET = "dotnet"
+    JAVA = "java"
+    RUBY = "ruby"
+    PHP = "php"
+
+
 @dataclass(frozen=True, slots=True)
 class ScanTarget:
     root: Path
@@ -49,15 +93,41 @@ class LanguageInfo:
     language: str | None
     dialect: str | None = None
     detection: str = "unknown"
+    confidence: Confidence = Confidence.LOW
+
+
+@dataclass(frozen=True, slots=True)
+class FileIdentity:
+    platform: str
+    volume_id: int | None
+    file_id: int | None
+    fallback_key: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class FileArtifact:
     path: str  # root-relative POSIX-style path, never a report host path
     size_bytes: int
-    kind: str
+    kind: ArtifactKind
     language: LanguageInfo
     sha256: str | None = None
+    content_kind: ContentKind = ContentKind.UNKNOWN
+    script_kind: ScriptKind | None = None
+    manifest_kind: ManifestKind | None = None
+    identity: FileIdentity | None = None
+    basename: str = ""
+    suffixes: tuple[str, ...] = ()
+    mtime_ns: int | None = None
+    encoding: str | None = None
+    classification_confidence: Confidence = Confidence.LOW
+    is_executable_like: bool = False
+    sniffed_bytes: int = 0
+    filesystem_type: str = "regular"
+    is_reparse_point: bool = False
+
+    @property
+    def artifact_kind(self) -> ArtifactKind:
+        return self.kind
 
 
 @dataclass(frozen=True, slots=True)

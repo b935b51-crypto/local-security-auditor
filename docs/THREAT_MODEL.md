@@ -22,4 +22,4 @@ Adversary controls target directory contents, names, links/reparse points, manif
 
 ## Security validation gates
 
-Phase 1 must test symlink/junction loops, root escape, race-sensitive traversal decisions, long paths, weird Unicode names, huge files, and budgets without executing fixture content. Later phases add redaction, parser, adapter, HTML, and terminal regression tests. All fixture keys are clearly fake. No dynamic analysis is authorized by this threat model.
+Phase 1 adds synthetic tests for boundary checks, mocked reparse behavior, races, Unicode names, large files, and budgets without executing fixture content. Real symlink creation was unavailable on the current host; junction, UNC/network identity, and long-path edge cases remain verification gaps documented in [Discovery](DISCOVERY.md). Later phases add redaction, parser, adapter, HTML, and terminal regression tests. All fixture keys are clearly fake. No dynamic analysis is authorized by this threat model.

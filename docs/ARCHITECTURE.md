@@ -1,8 +1,8 @@
-# Architecture — Phase 0 contract
+# Architecture — Phase 1 baseline
 
 ## Invariant and data flow
 
-**TARGET CODE MUST NEVER BE EXECUTED AUTOMATICALLY.** The selected repository is untrusted input. The core runs offline; only explicit, separate adapters may access a network. Phase 0 implements data contracts and a minimal trusted-operator config parser; no pipeline stage scans yet.
+**TARGET CODE MUST NEVER BE EXECUTED AUTOMATICALLY.** The selected repository is untrusted input. The core runs offline; only explicit, separate adapters may access a network. Phase 1 implements the bounded discovery/classification stage. No vulnerability scanner or report pipeline runs yet.
 
 ```text
 CLI/UI -> policy + bounded discovery -> classified FileArtifact
@@ -42,19 +42,19 @@ Dependency direction: `core` knows no scanner, CLI, reporter, network client, or
 
 `ScanTarget`, `ScanSession`, `ScanProfile`, `FileArtifact`, `LanguageInfo`, `ScannerMetadata`, `Finding`, `Evidence`, `Location`, `Severity`, `Confidence`, `RuleReference`, `DependencyArtifact`, `VulnerabilityReference`, `Remediation`, `ScannerResult`, and `ReportSummary` are in `core/models.py`. `Scanner` and `AsyncScanner` protocols are in `core/contracts.py`. A future adapter runner normalizes synchronous, asynchronous, external-tool, and vulnerability lookup results to `ScannerResult`.
 
-The phase 0 package has no scanner registry, orchestrator implementation, discovery implementation, renderer, external adapter, or CLI command. Planned directories are added with their actual implementations, not empty packages.
+`discovery/service.py` composes root validation, policy, bounded traversal, prefix sniffing, and pure classification. [Discovery details](DISCOVERY.md) specify semantics and known limits. The package still has no scanner registry, orchestrator, renderer, external adapter, or CLI command.
 
 ## Configuration and profiles
 
-Hierarchy: safe built-in defaults → optional project `security-auditor.toml` → trusted operator CLI overrides. Hard limits and trust restrictions sit outside this hierarchy and cannot be raised by target data. A config found in the scanned target is untrusted: it may narrow coverage/limits but cannot enable network, AI, external executables, symlink traversal, or writes. Phase 0 `load_config` only parses an explicitly operator-selected TOML file; no automatic target config loading exists. Future merge logic must preserve the preceding rules.
+Hierarchy: safe built-in defaults → optional project `security-auditor.toml` → trusted operator CLI overrides. Hard limits and trust restrictions sit outside this hierarchy and cannot be raised by target data. A config found in the scanned target is untrusted: it may narrow coverage/limits but cannot enable network, AI, external executables, symlink traversal, or writes. `load_config` still parses only an explicitly operator-selected TOML file; no automatic target config loading exists. Future merge logic must preserve these rules.
 
 `quick`: secrets, simple patterns, manifests. `standard`: quick plus SAST, config, dependencies, behavior. `deep`: standard plus dataflow and correlation; optional AI only after separate opt-in. A profile is a coverage intent, not permission to relax resource caps. `--offline` remains meaningful for all profiles.
 
-Discovery defaults are configurable: version-control `.gitignore` is separate from security scan excludes. `respect_gitignore=false` by default because `.env` may contain security-relevant data. Include/exclude patterns never override root boundaries or hard caps. Phase 1 must define deterministic precedence, including how explicit include interacts with exclusions, without allowing traversal outside the root.
+Discovery defaults are configurable: version-control `.gitignore` is separate from security scan excludes. `respect_gitignore=false` by default because `.env` may contain security-relevant data. Explicit includes override ordinary exclusions but never root boundaries or hard caps. Phase 1 pattern precedence and its bounded root-level `.gitignore` subset are in [Discovery](DISCOVERY.md).
 
 ## Reporting and CLI direction
 
-Future CLI: `security-auditor scan <path> [--profile quick|standard|deep] [--format console|json|sarif|html] [--output PATH] [--include GLOB] [--exclude GLOB] [--no-ai] [--offline]`. Phase 0 does not expose it.
+Future CLI: `security-auditor scan <path> [--profile quick|standard|deep] [--format console|json|sarif|html] [--output PATH] [--include GLOB] [--exclude GLOB] [--no-ai] [--offline]`. Phase 1 does not expose it.
 
 Scanner → Finding → Finding Store → Reporter. Console is a concise, terminal-safe view. JSON is a versioned machine contract for CI, Codex, and GUI. SARIF maps rules, locations, severity, and fingerprints for GitHub/IDE/CI; unsupported fields remain in versioned properties. HTML is inert: escape all source-derived text, no scanned-content scripts or event handlers, restrictive CSP, no remote assets by default. Reports include scanner coverage, skips, failures, and incomplete status. JSON/SARIF/HTML cannot serialize raw secret values.
 
