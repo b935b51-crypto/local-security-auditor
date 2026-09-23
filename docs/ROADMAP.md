@@ -11,8 +11,8 @@
 | 6 | Optional AI Security Reviewer | implemented library layer: explicit opt-in, redacted bounded context, optional Gemini 3.8 Flash adapter, separate annotations; limits in [AI Reviewer](AI_REVIEWER.md) |
 | 7 | CLI + Console / JSON / SARIF / HTML Reporting | implemented: ordered orchestration, canonical report 1.0 then 1.1, output safety, coverage metadata; see [CLI](CLI.md) and [Reporting](REPORTING.md) |
 | 8 | Remediation + Patch Proposal | implemented: conservative guidance, narrow TLS edit, optional separately granted Gemini edits, in-memory static validation, proposal-only reports; see [Remediation](REMEDIATION.md) |
-| 9 | GUI + Codex Integration | local workflow integration, no weakened boundaries |
+| 9 | GUI + Codex Integration | local Tk GUI, shared deterministic gate, defensive Codex Skill; see [GUI](GUI.md), [Security Gate](SECURITY_GATE.md), and [Codex integration](CODEX_INTEGRATION.md) |
 
-Phase 8 is an implementation milestone with no target writes or runtime validation. Phase 9 has not started.
+Phase 9 is an implementation milestone with no target writes, automatic patch application, or runtime target validation. A possible future Phase 10 could design controlled patch application with fresh identity checks, dirty-tree protection, backups/rollback, explicit human approval, post-apply scan, and separately authorized user-run tests. Phase 10 has not started.
 
-Phases 1–8 are complete as implementation milestones, with verification limits recorded in the linked phase documents and `PROJECT_STATUS.md`. Later phases may split by ecosystem if complexity warrants it, without changing the security boundary.
+Phases 1–9 are complete as implementation milestones, with verification limits recorded in the linked phase documents and `PROJECT_STATUS.md`. Later phases may split by ecosystem if complexity warrants it, without changing the security boundary.

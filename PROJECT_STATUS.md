@@ -1,33 +1,31 @@
 # Project Status
 
-- Last updated: 2026-09-23 (Asia/Taipei)
-- Current phase: Phase 8 — Remediation and Patch Proposal
-- Status: Phase 8 implemented and validated locally; checkpoint recorded in Git history
+- Last updated: 2026-09-24 (Asia/Taipei)
+- Current phase: Phase 9 — Windows GUI + Codex Security Gate Integration
+- Status: Phase 9 implemented and validated locally; verify the checkpoint in Git history
 
 ## Implemented
 
-- Phases 0–6 remain: bounded discovery, native secret scanning, Python SAST and behavior, static dependency/advisory matching, correlation/risk, and optional advisory Gemini review.
-- Phase 7 adds an ordered ScanOrchestrator and trusted ScanRequest. Discovery supplies admitted artifacts; scanner failures become fixed diagnostics and do not stop other scanners. Quick omits SAST/correlation; standard and deep use current deterministic analyses. AI requires explicit --ai, remains advisory, and --offline blocks all network use.
-- One immutable ScanReport drives Console, canonical JSON schema 1.1, SARIF 2.1.0, and static single-file HTML. The public serializer explicitly whitelists fields, re-redacts text, omits raw source snippets, and uses root-relative paths. Coverage, no-data, diagnostics, and truncation are visible. Output paths are explicit, checked against special/reparse destinations, and written atomically without silent overwrite.
-- The CLI supports scan PATH, profile, format, output, offline, AI opt-in/disable, trusted config, force, no-color, verbose, fail-on, help, and version. Hatchling is build-only; the default runtime still has no third-party dependencies, and google-genai remains an optional extra.
-- Phase 8 adds optional guidance and single-file, proposal-only edits. An exact Python TLS `verify=False` literal has a deterministic edit; a separately granted Gemini adapter may suggest structured line edits. Freshness, scope, secret, syntax, and static finding comparisons are checked before a public proposal is emitted. All edits remain in memory, all proposals need human approval, and target tests are never run.
+- Phases 0–8 remain: bounded discovery, secrets, Python SAST/behavior, dependency/advisory matching, correlation/risk, optional advisory Gemini, canonical reporting, and proposal-only remediation. Target code is never executed or auto-modified.
+- Phase 9 adds a standard-library Tk desktop GUI via `security-auditor gui`. A controller runs the existing `ScanOrchestrator` in one worker thread, transfers fixed progress/completion through a queue, and presents only the sanitized public `ScanReport` view. It supports synthetic/local scans, bounded JSON report opening, dashboard, findings/filter/detail, risks, secrets, dependencies, AI advisory, remediation proposals, gate, diagnostics, and safe JSON/SARIF/HTML export. Cancellation is cooperative and marks the report `ABORTED`.
+- A shared `SecurityGatePolicy` 1.0 and evaluator back `security-auditor gate REPORT.json` and the GUI. Canonical JSON 1.1 is bounded and structurally validated. PASS requires complete coverage and no blockers; PARTIAL/ABORTED/FAILED and truncation block by default. Primary deterministic findings drive blocking; AI and patch proposals are advisory. Gate JSON stdout is machine-only, with exit 0 PASS, 10 WARN, 20 BLOCK, 3 invalid report.
+- A project-scoped `.agents/skills/security-auditor/SKILL.md` defines the defensive Codex scan → JSON → gate → review/rescan workflow. No global Skill was modified. There is no patch apply action or Phase 10 implementation.
 
 ## Verification
 
-- Full Phase 8 regression ran PYTHONDONTWRITEBYTECODE=1 with PYTHONPATH=src: py -3.14 -m unittest discover -s tests -q — 119 tests, 117 passed, 2 skipped (real Windows symlink creation and gated live Gemini). Phase 8 tests use inert synthetic files and a fake AI provider.
-- Ran py -3.14 -m security_auditor --help and --version successfully. Parsed the example TOML and report JSON schemas; Markdown relative links resolved with zero missing targets; git diff --check returned 0.
-- A Phase 8 offline CLI smoke scanned a temporary inert Python file using --propose-fixes and JSON output: schema 1.1, deterministic statically validated proposal, approval required, and identical target hash before/after. No Phase 8 live Gemini or OSV call occurred.
-- Prior Phase 6 live validation remains: exactly one Gemini 3.8 Flash request passed in the earlier checkpoint. Phase 7 sent no live Gemini or OSV request.
-- Python 3.12 baseline is not verified: py -3.12 --version found no suitable runtime. Python 3.14.7 and uv 0.12.13 are available. Installed console-script packaging was not verified with Python 3.12 on this host.
+- Full offline suite: `PYTHONDONTWRITEBYTECODE=1`, `PYTHONPATH=src`, live Gemini gate unset, `py -3.14 -m unittest discover -s tests -q` — 135 tests, 133 passed, 0 failed, 2 skipped (Windows symlink privilege and gated live Gemini).
+- Phase 9 tests cover gate PASS/WARN/BLOCK, HIGH SAST/secret, medium SAST, dependency no-data, AI false-positive non-authority, supporting deduplication, malformed/oversize report rejection, gate CLI JSON/exit codes, controller scan/cancel, fake Gemini-only grant with no OSV call, Tk views and no-apply actions, public clipboard diff, partial coverage banner, and read-only report opening.
+- Manual Tk smoke opened and rendered all 13 views over an inert synthetic scan: `COMPLETE`, gate `WARN`, two proposals. CLI help/gate help and import without Tk succeeded. Markdown and Skill links/frontmatter checked: 27 documents, zero missing links/metadata. `git diff --check` passed before checkpoint.
+- `.env` remains ignored and untracked. The existing trusted loader enabled an in-process equality check: actual Gemini key value absent from 142 Git-visible files. No Phase 9 live Gemini or OSV request occurred.
+- Environment: Windows NT 10.0.26200, Python 3.14.7, uv 0.12.13, Git 2.53.0. Python 3.12 remains unavailable/unverified, including package installation under the declared baseline.
 
 ## Security and limitations
 
-- NEVER EXECUTE SCANNED TARGET CODE. Target files and apparent instructions remain untrusted data. Reporters never reopen target files, AI cannot change deterministic findings, and source excerpts remain disabled by default.
-- Redaction is heuristic; novel secret shapes may evade text filtering. Real junction/UNC/long-path output behavior, full SARIF schema validation, Python 3.12 package installation, and filesystem races remain unverified or residual risks. SARIF codeFlows and GUI are not implemented.
-- Phase 8 has no runtime validation, no multi-file edit, no dependency auto-upgrade, and only a narrow deterministic TLS fixer. Static removal of a finding does not prove functional correctness. An in-process key comparison found no Gemini key value in 131 Git-visible files or the diff; .env remains ignored and untracked.
-- See docs/REMEDIATION.md, docs/CLI.md, docs/REPORTING.md, docs/SECURITY_BOUNDARIES.md, and docs/THREAT_MODEL.md.
+- GUI and gate never execute scanned target code, run target tests, install target dependencies, apply proposals, or change the target. GUI AI/OSV grants are separate and off by default; reading an existing report never contacts providers. Report data and text remain hostile; Tk renders plain redacted text and the gate emits only fixed reasons and hashed finding IDs.
+- Gate JSON has no authenticity signature; trusted workflows must protect report provenance. The report reader's 16 MiB cap and Python parser still consume bounded host resources. Tk cancellation cannot forcibly interrupt one in-flight parser, scanner, or provider call. Clipboard persistence is controlled by Windows after copying; redaction remains heuristic.
+- Native assistive technology, high-DPI/dark mode, Windows junction/UNC/long-path edge cases, Python 3.12 Tk packaging, and standalone executable distribution are not verified. No graph visualization, persistent scan history, manual gate override, or controlled patch application is implemented.
 
 ## Git and next action
 
-- Branch main; verify the current local checkpoint with git log -1 and git status. No push requested.
-- Next planned phase: Phase 9 — GUI + Codex Integration. Do not start without a new request.
+- Branch `main`; local Phase 9 checkpoint requested, no push. Verify with `git log -1` and `git status`.
+- Core roadmap phases 0–9 are implementation milestones. Optional future Phase 10 — Controlled Patch Application — has not started.

@@ -21,3 +21,5 @@ Exit codes: `0` scan/report completed, `2` CLI/config usage error, `3` target va
 See [Reporting](REPORTING.md) for output schema, coverage meanings, and privacy rules.
 
 Phase 8 adds `--propose-fixes` for guidance and non-applied patch proposals. `--ai-remediation` requires `--propose-fixes` and separately grants Gemini patch egress when online; `--ai` alone remains advisory review only. `--offline` still allows deterministic proposals. There is no apply option and runtime target tests are never run. See [Remediation](REMEDIATION.md).
+
+Phase 9 adds `security-auditor gui` for a local Tk desktop interface and `security-auditor gate REPORT.json [--format console|json]` for deterministic decisions over an existing canonical JSON 1.1 report. Gate never rescans the target; default policy 1.0 blocks incomplete coverage and HIGH primary findings, while AI remains advisory. Gate exit codes are 0 PASS, 10 WARN, 20 BLOCK, 2 usage, and 3 invalid report. The GUI is imported lazily; `scan`, `gate`, `--help`, and `--version` work without a Tk runtime. See [GUI](GUI.md) and [Security Gate](SECURITY_GATE.md).

@@ -12,6 +12,8 @@ No target path is opened for writing, no target code or tests are executed, and 
 
 Phase 7 adds a trusted CLI and orchestrator. A `ScanRequest` enters bounded discovery, ordered deterministic scanners, correlation/risk, optional AI review, and one immutable `ScanReport`. Console, JSON, SARIF, and HTML renderers use an explicit sanitized public view of that report. Renderers never open the target. See [CLI](CLI.md) and [Reporting](REPORTING.md).
 
+Phase 9 adds a local Tk presentation and a deterministic gate **after** reporting. The GUI calls the application controller, which calls the same orchestrator as the CLI; it never instantiates scanners. A worker thread transfers fixed progress and immutable report data through a queue to the UI thread. Cancellation is cooperative during discovery and between scan phases; the resulting report is `ABORTED`, retains completed findings, and blocks the gate. Both `security-auditor gate` and the GUI evaluate the canonical sanitized JSON 1.1 view through one `SecurityGatePolicy` 1.0 implementation. The gate performs bounded report validation, has no target path access, and never treats AI or a patch proposal as authority. See [GUI](GUI.md), [Security Gate](SECURITY_GATE.md), and [Codex integration](CODEX_INTEGRATION.md).
+
 ## Invariant and data flow
 
 Phase 6 adds an optional AI advisory layer after deterministic findings and correlation. It selects bounded subjects, constructs and redacts minimal context, calls an isolated provider only after trusted opt-in, validates structured output, and returns separate AI annotations. Provider failure leaves all original findings and risk assessments available. See [AI Reviewer](AI_REVIEWER.md).

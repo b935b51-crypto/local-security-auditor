@@ -19,7 +19,8 @@ from security_auditor.scanners.behavior.scanner import BehaviorScanner
 from security_auditor.scanners.dependencies.scanner import DependencyScanner
 from security_auditor.correlation.engine import CorrelationEngine
 from security_auditor.ai.reviewer import AIReviewer
-from security_auditor.reporting.models import ScanReport, assemble_report
+from security_auditor.reporting.models import (CoverageStatus, ReportDiagnostic,
+                                                ScanReport, assemble_report)
 from security_auditor.remediation.planner import RemediationPlanner
 from .models import ScanRequest
 
@@ -48,7 +49,18 @@ class ScanOrchestrator:
         ai_enabled = request.ai_requested and not request.ai_disabled and not offline
         session = ScanSession(uuid4().hex, ScanTarget(request.target, request.target.name or "."),
                               profile, started, offline)
-        discovery = discover(session.target, DiscoveryPolicy.from_config(config))
+        def cancelled() -> bool:
+            return request.cancel_event is not None and request.cancel_event.is_set()
+
+        def stage(name: str) -> None:
+            if request.progress is not None:
+                try:
+                    request.progress(name)
+                except Exception:
+                    pass
+
+        stage("Discovering")
+        discovery = discover(session.target, DiscoveryPolicy.from_config(config), cancelled)
         results: list[ScannerResult] = []
         correlation = None
         ai = None
@@ -63,25 +75,33 @@ class ScanOrchestrator:
             dependency = DependencyScanner(config.dependencies, vulnerability,
                                            self.dependency_provider, self.dependency_cache)
             for scanner in scanners:
+                if cancelled():
+                    break
+                stage({"secrets": "Secrets", "sast.python": "SAST",
+                       "behavior": "Behavior"}.get(scanner.metadata.id, "Scanning"))
                 try:
                     results.append(scanner.scan_discovery(session, discovery))
                 except Exception:
                     results.append(ScannerResult(scanner.metadata, status="failed",
                         diagnostics=(ScannerDiagnostic("SCANNER_INTERNAL_ERROR", "scanner failed without exposing target content"),),
                         summary=ScannerSummary(completeness="failed")))
-            try:
-                dependency_outcome = dependency.scan_with_inventory(session, discovery)
-                results.append(dependency_outcome.result)
-            except Exception:
-                results.append(ScannerResult(dependency.metadata, status="failed",
-                    diagnostics=(ScannerDiagnostic("SCANNER_INTERNAL_ERROR", "scanner failed without exposing target content"),),
-                    summary=ScannerSummary(completeness="failed")))
-            if profile is not ScanProfile.QUICK:
+            if not cancelled():
+                stage("Dependencies")
+                try:
+                    dependency_outcome = dependency.scan_with_inventory(session, discovery)
+                    results.append(dependency_outcome.result)
+                except Exception:
+                    results.append(ScannerResult(dependency.metadata, status="failed",
+                        diagnostics=(ScannerDiagnostic("SCANNER_INTERNAL_ERROR", "scanner failed without exposing target content"),),
+                        summary=ScannerSummary(completeness="failed")))
+            if not cancelled() and profile is not ScanProfile.QUICK:
+                stage("Correlation")
                 try:
                     correlation = CorrelationEngine(config.correlation).correlate(results)
                 except Exception:
                     correlation = None
-            if ai_enabled:
+            if not cancelled() and ai_enabled:
+                stage("AI Review")
                 try:
                     ai = AIReviewer(replace(config.ai, enabled=True), self.ai_provider).review(
                         session, results, correlation, discovery, allow_online_ai=True,
@@ -92,7 +112,8 @@ class ScanOrchestrator:
                                  dependency_outcome, ai_requested=request.ai_requested,
                                  started_at=started, completed_at=datetime.now(timezone.utc),
                                  duration_seconds=monotonic() - clock)
-        if request.propose_fixes and discovery.root is not None:
+        if not cancelled() and request.propose_fixes and discovery.root is not None:
+            stage("Remediation")
             try:
                 planner = RemediationPlanner(replace(config.remediation, enabled=True),
                                              config.sast, ai_provider=self.ai_provider,
@@ -109,4 +130,11 @@ class ScanOrchestrator:
             except Exception:
                 report = replace(report, remediation_requested=True,
                                  remediation_diagnostics=("PATCH_VALIDATION_PARTIAL",))
+        if cancelled():
+            report = replace(report,
+                coverage=replace(report.coverage, overall=CoverageStatus.ABORTED,
+                                 reasons=tuple(sorted(set(report.coverage.reasons) | {"SCAN_CANCELLED"}))),
+                diagnostics=report.diagnostics +
+                            (ReportDiagnostic("orchestrator", "SCAN_CANCELLED", "scan cancelled by operator"),))
+        stage("Reporting")
         return report

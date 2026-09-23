@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from threading import Event
+from typing import Callable
 
 from security_auditor.core.config import AuditConfig
 from security_auditor.core.models import ScanProfile
@@ -19,6 +21,8 @@ class ScanRequest:
     ai_disabled: bool = False
     propose_fixes: bool = False
     ai_remediation_requested: bool = False
+    cancel_event: Event | None = None
+    progress: Callable[[str], None] | None = None
 
     def __post_init__(self) -> None:
         if self.ai_requested and self.ai_disabled:

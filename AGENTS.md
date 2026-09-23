@@ -10,6 +10,7 @@ Read [security boundaries](docs/SECURITY_BOUNDARIES.md) before changing target-h
 
 - Python `>=3.12,<3.13`, selected explicitly; uv manages local environments. Do not alter system Python or another project's environment.
 - The default package has no third-party runtime dependencies. Hatchling is build-only. The Phase 6 Gemini adapter uses an optional `gemini` extra and loads only after trusted opt-in. Phase 7 has a `security-auditor scan PATH` CLI, ordered orchestrator, and Console/JSON/SARIF/HTML reporters; see `docs/CLI.md` and `docs/REPORTING.md`.
+- Phase 9 adds a standard-library Tk GUI and a report-only deterministic gate. The CLI lazy-loads GUI code; no GUI dependency is required for scans or gate use. See `docs/GUI.md`, `docs/SECURITY_GATE.md`, and `docs/CODEX_INTEGRATION.md`.
 - Source lives under `src/security_auditor/`; tests use `unittest` in `tests/`.
 - On Windows PowerShell, after Python 3.12 is available: `$env:PYTHONPATH='src'; py -3.12 -m unittest discover -s tests -v`.
 - `uv run --no-sync --python 3.12 python -m unittest discover -s tests -v` is the intended uv route once a suitable interpreter is installed; verify rather than assuming it works locally.
@@ -22,6 +23,7 @@ Phase 5 correlation consumes normalized, redacted scanner results only. It never
 Phase 6 AI review is advisory and disabled by default. It needs trusted settings, an explicit online grant, and a non-offline session. Never take API keys from the target, send whole files or repositories, enable Gemini tools, or let AI mutate Findings or risk assessments. Read [AI reviewer](docs/AI_REVIEWER.md) before changing that layer.
 Phase 7 reporting consumes one immutable `ScanReport` through an explicit public-field whitelist. Renderers never reopen target content. Surface incomplete coverage and report truncation; keep machine stdout pure; escape HTML and terminal controls; never serialize raw secret evidence. Output writing must remain explicit, validated, and atomic. Read [Reporting](docs/REPORTING.md) and [CLI](docs/CLI.md) before changing these boundaries.
 Phase 8 remediation is proposal-only. Never write a patch into the target, apply one automatically, execute target tests, or treat static finding removal as proof of safety. Deterministic and AI edits use one admitted file, bounded in-memory replacement, scope/freshness checks, and static re-scan. AI patch requires a separate trusted opt-in. Every proposal requires human approval. Read [Remediation](docs/REMEDIATION.md).
+Phase 9 GUI consumes the public `ScanReport` view and never calls scanners directly, opens target files with shell association, or applies proposals. GUI strings are untrusted plain text; clipboard accepts only public redacted diffs. A loaded JSON report is size/type/schema checked. The Security Gate uses the same evaluator in CLI and GUI, blocks incomplete coverage by default, and ignores AI verdicts when deciding PASS/WARN/BLOCK. The project [security-auditor Skill](.agents/skills/security-auditor/SKILL.md) is defensive only. No Phase 10 patch application is implemented.
 
 ## Dependency policy
 

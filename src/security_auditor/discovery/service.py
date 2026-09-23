@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import stat
 from time import monotonic
+from typing import Callable
 
 from security_auditor.core.models import FileArtifact, FileIdentity, ScanTarget
 from .classifier import classify
@@ -58,7 +59,8 @@ def _same_file(left: os.stat_result, right: os.stat_result) -> bool:
     )
 
 
-def discover(target: ScanTarget, policy: DiscoveryPolicy) -> DiscoveryResult:
+def discover(target: ScanTarget, policy: DiscoveryPolicy,
+             cancelled: Callable[[], bool] | None = None) -> DiscoveryResult:
     """Classify a target tree without executing target code or writing to it."""
     started = monotonic()
     stats = _Counters()
@@ -141,6 +143,10 @@ def discover(target: ScanTarget, policy: DiscoveryPolicy) -> DiscoveryResult:
     # A stack avoids Python recursion limits. Each directory is enumerated once.
     pending: list[tuple[Path, int]] = [(root, 0)]
     while pending:
+        if cancelled is not None and cancelled():
+            diagnostic(DiagnosticCode.SCAN_CANCELLED, None)
+            completeness = ScanCompleteness.ABORTED
+            break
         if monotonic() - started >= policy.limits.max_elapsed_seconds:
             diagnostic(DiagnosticCode.MAX_TIME_REACHED, None)
             completeness = ScanCompleteness.ABORTED
@@ -165,6 +171,10 @@ def discover(target: ScanTarget, policy: DiscoveryPolicy) -> DiscoveryResult:
             with os.scandir(directory) as entries:
                 names: list[str] = []
                 for entry in entries:
+                    if cancelled is not None and cancelled():
+                        diagnostic(DiagnosticCode.SCAN_CANCELLED, relative_dir)
+                        completeness = ScanCompleteness.ABORTED
+                        break
                     stats.entries_seen += 1
                     if stats.entries_seen > policy.limits.max_entries:
                         diagnostic(DiagnosticCode.MAX_ENTRIES_REACHED, relative_dir)
@@ -191,6 +201,10 @@ def discover(target: ScanTarget, policy: DiscoveryPolicy) -> DiscoveryResult:
         stats.directories_visited += 1
         child_directories: list[tuple[Path, int]] = []
         for name in sorted(names, key=_sort_key):
+            if cancelled is not None and cancelled():
+                diagnostic(DiagnosticCode.SCAN_CANCELLED, relative_dir)
+                completeness = ScanCompleteness.ABORTED
+                break
             if monotonic() - started >= policy.limits.max_elapsed_seconds:
                 diagnostic(DiagnosticCode.MAX_TIME_REACHED, relative_dir)
                 completeness = ScanCompleteness.ABORTED

@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import sys
 
 from security_auditor import __version__
 from security_auditor.core.config import AuditConfig, load_config
 from security_auditor.core.models import ScanProfile
+from security_auditor.gate import GateReportError, evaluate_gate, load_report, result_view
 from security_auditor.orchestrator import ScanOrchestrator, ScanRequest
 from security_auditor.reporting import console, html, json_report, sarif
 from security_auditor.reporting.output import ReportOutputError, write_text
@@ -44,11 +46,41 @@ def parser() -> argparse.ArgumentParser:
                       help="generate remediation guidance and non-applied patch proposals")
     scan.add_argument("--ai-remediation", action="store_true",
                       help="explicitly request Gemini patch proposals; requires --propose-fixes")
+    gate = commands.add_parser("gate", help="evaluate a canonical JSON report without rescanning")
+    gate.add_argument("report", type=Path)
+    gate.add_argument("--format", choices=("console", "json"), default="console")
+    commands.add_parser("gui", help="open the local read-only Windows desktop interface")
     return root
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
+    if args.command == "gate":
+        try:
+            result = evaluate_gate(load_report(args.report))
+        except GateReportError as error:
+            print(f"Gate failed: {error.code}", file=sys.stderr)
+            return EXIT_SCAN
+        if args.format == "json":
+            if hasattr(sys.stdout, "reconfigure"):
+                sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
+            sys.stdout.write(json.dumps(result_view(result), sort_keys=True,
+                                        separators=(",", ":")) + "\n")
+        else:
+            print(f"Security gate: {result.status.value} | coverage: {result.coverage_status}"
+                  f" | policy: {result.policy_version}")
+            for reason in result.reasons:
+                print(f"- {reason}")
+            print(f"Blocking primary findings: {len(result.blocking_findings)}; "
+                  f"warnings: {len(result.warning_findings)}")
+        return {"PASS": 0, "WARN": 10, "BLOCK": 20}[result.status.value]
+    if args.command == "gui":
+        try:
+            from security_auditor.gui.app import run_gui
+            return run_gui()
+        except ImportError:
+            print("GUI unavailable: Tk runtime is not installed", file=sys.stderr)
+            return EXIT_USAGE
     if args.format == "html" and args.output is None:
         print("HTML output requires --output", file=sys.stderr)
         return EXIT_USAGE

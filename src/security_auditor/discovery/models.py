@@ -39,6 +39,7 @@ class DiagnosticSeverity(StrEnum):
 
 
 class DiagnosticCode(StrEnum):
+    SCAN_CANCELLED = "SCAN_CANCELLED"
     ROOT_NOT_FOUND = "ROOT_NOT_FOUND"
     ROOT_NOT_DIRECTORY = "ROOT_NOT_DIRECTORY"
     ROOT_REPARSE_POINT = "ROOT_REPARSE_POINT"
