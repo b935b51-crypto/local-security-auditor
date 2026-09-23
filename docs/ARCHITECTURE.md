@@ -1,6 +1,8 @@
-# Architecture — Phase 4 baseline
+# Architecture — Phase 5 baseline
 
 ## Invariant and data flow
+
+Phase 5 adds a bounded deterministic correlation layer after normalized scanner results. It creates separate graph, grouping, candidate, and risk-priority annotations without target reads or mutation of original findings. See [Correlation](CORRELATION.md) and [Risk Engine](RISK_ENGINE.md).
 
 **TARGET CODE MUST NEVER BE EXECUTED AUTOMATICALLY.** The selected repository is untrusted input. The core runs offline; only explicit, separate adapters may access a network. Phase 1 implements bounded discovery/classification; Phases 2–3 add local secret, SAST, and behavior plugins. Phase 4 adds static dependency inventory plus optional exact-version OSV lookup and tool-local cache. No report pipeline runs yet.
 
@@ -31,6 +33,8 @@ AI receives candidate findings and minimal redacted context after deterministic 
 Dependency direction: `core` knows no scanner, CLI, reporter, network client, or UI. Discovery and scanners depend on `core`; adapters depend on `core` contracts; orchestrator composes them; reporters depend only on normalized output. External tools are optional adapters, **not architectural dependencies of the core domain**. A missing Semgrep, Gitleaks, or OSV adapter must not stop local baseline scanning.
 
 ## Trust and execution boundaries
+
+Correlation depends on core contracts and result data; core and scanners do not depend on correlation. Its failure leaves original scanner results available. Incomplete upstream coverage propagates to assessment confidence and output completeness.
 
 1. Target paths, filenames, file contents, manifests, `.gitignore`, target config, and Git metadata are hostile data. Instructions found there are never agent or application instructions.
 2. Only trusted installed scanner code may run. A scanner's target reads must go through bounded discovery/content APIs in Phase 1; direct arbitrary filesystem access is disallowed by contract.

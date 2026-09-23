@@ -80,6 +80,11 @@ VULNERABILITY_HARD_CAPS = {
     "cache_ttl_seconds": 30 * 24 * 3600,
     "max_advisories": 10000,
 }
+CORRELATION_HARD_CAPS = {
+    "max_findings": 100000, "max_nodes": 200000, "max_edges": 300000,
+    "max_attack_paths": 10000, "max_seconds": 3600,
+    "proximity_lines": 20,
+}
 
 
 def _validate_limits(instance: object, caps: dict[str, int]) -> None:
@@ -186,6 +191,20 @@ class VulnerabilityLimits:
 
 
 @dataclass(frozen=True, slots=True)
+class CorrelationLimits:
+    enabled: bool = True
+    max_findings: int = 10000
+    max_nodes: int = 20000
+    max_edges: int = 30000
+    max_attack_paths: int = 1000
+    max_seconds: int = 300
+    proximity_lines: int = 5
+
+    def __post_init__(self) -> None:
+        _validate_limits(self, CORRELATION_HARD_CAPS)
+
+
+@dataclass(frozen=True, slots=True)
 class DiscoveryLimits:
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE
     max_file_count: int = DEFAULT_MAX_FILE_COUNT
@@ -215,13 +234,14 @@ class AuditConfig:
     behavior: BehaviorLimits = BehaviorLimits()
     dependencies: DependencyLimits = DependencyLimits()
     vulnerability: VulnerabilityLimits = VulnerabilityLimits()
+    correlation: CorrelationLimits = CorrelationLimits()
 
 
 def load_config(path: Path) -> AuditConfig:
     """Load operator-selected TOML; rejects unknown keys and unsafe limit increases."""
     with path.open("rb") as stream:
         raw = tomllib.load(stream)
-    if set(raw) - {"scan", "discovery", "secrets", "sast", "behavior", "dependencies", "vulnerability"}:
+    if set(raw) - {"scan", "discovery", "secrets", "sast", "behavior", "dependencies", "vulnerability", "correlation"}:
         raise ValueError("unknown top-level config key")
     scan = raw.get("scan", {})
     discovery = raw.get("discovery", {})
@@ -230,7 +250,8 @@ def load_config(path: Path) -> AuditConfig:
     behavior = raw.get("behavior", {})
     dependencies = raw.get("dependencies", {})
     vulnerability = raw.get("vulnerability", {})
-    if any(not isinstance(table, dict) for table in (scan, discovery, secrets, sast, behavior, dependencies, vulnerability)):
+    correlation = raw.get("correlation", {})
+    if any(not isinstance(table, dict) for table in (scan, discovery, secrets, sast, behavior, dependencies, vulnerability, correlation)):
         raise ValueError("invalid config table")
     if set(scan) - {"profile", "offline"} or set(discovery) - {
         "include", "exclude", "default_exclude", "respect_gitignore",
@@ -252,6 +273,8 @@ def load_config(path: Path) -> AuditConfig:
         raise ValueError("unknown dependencies config key")
     if set(vulnerability) - set(VULNERABILITY_HARD_CAPS) - {"enabled", "provider", "cache_enabled"}:
         raise ValueError("unknown vulnerability config key")
+    if set(correlation) - set(CORRELATION_HARD_CAPS) - {"enabled"}:
+        raise ValueError("unknown correlation config key")
     profile = ScanProfile(scan.get("profile", "standard"))
     offline = scan.get("offline", True)
     respect_gitignore = discovery.get("respect_gitignore", False)
@@ -302,10 +325,14 @@ def load_config(path: Path) -> AuditConfig:
     vulnerability_defaults = VulnerabilityLimits()
     vulnerability_values = {key: vulnerability.get(key, getattr(vulnerability_defaults, key))
                             for key in VulnerabilityLimits.__dataclass_fields__}
+    correlation_defaults = CorrelationLimits()
+    correlation_values = {key: correlation.get(key, getattr(correlation_defaults, key))
+                          for key in CorrelationLimits.__dataclass_fields__}
     return AuditConfig(
         profile=profile, offline=offline, respect_gitignore=respect_gitignore,
         limits=DiscoveryLimits(**values), secrets=SecretLimits(**secret_values),
         sast=SASTLimits(**sast_values), behavior=BehaviorLimits(**behavior_values),
         dependencies=DependencyLimits(**dependency_values),
-        vulnerability=VulnerabilityLimits(**vulnerability_values), **patterns,
+        vulnerability=VulnerabilityLimits(**vulnerability_values),
+        correlation=CorrelationLimits(**correlation_values), **patterns,
     )

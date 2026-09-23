@@ -30,6 +30,8 @@ Deduplicate exact fingerprint matches, preserving all scanner/rule provenance an
 
 Suppressions are explicit reviewed records keyed by fingerprint or namespaced rule plus bounded path, with owner, reason, expiry, and source. They are applied after normalization and counted in summaries; they do not erase findings from internal audit evidence. Target-controlled inline comments or target config cannot suppress findings by default. Expired and unknown-rule suppressions surface as diagnostics. A suppression never changes scanner execution or disables safety limits.
 
+Phase 5 consumes these immutable findings and emits separate graph edges, PRIMARY/SUPPORTING groups, attack-path candidates, and risk assessments. It never rewrites a Finding's original severity, confidence, or CVSS. It reports fingerprint collisions and malformed inputs instead of treating them as safe equivalence. [Correlation](CORRELATION.md) and [Risk Engine](RISK_ENGINE.md) define the annotation contract.
+
 ## Redaction and storage
 
 Secret findings include type, safe location, and masked evidence such as `[REDACTED API KEY]`. Exact values, reversible encodings, or public hashes of secret values are forbidden in `Finding`, logs, JSON, SARIF, HTML, console, suppression keys, and AI context. The normalization gate rechecks all text fields, including descriptions and diagnostics, before storage/reporting. Because a generic schema cannot prove arbitrary text safe, scanners must construct evidence through future redaction helpers and output gates must fail closed on unsafe content. Do not persist raw scanner output.

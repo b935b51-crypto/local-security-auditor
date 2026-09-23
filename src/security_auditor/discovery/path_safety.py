@@ -5,7 +5,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import stat
-import unicodedata
+
+from security_auditor.core.redaction import safe_display
 
 
 _WINDOWS_RESERVED = {"CON", "PRN", "AUX", "NUL", *(f"COM{n}" for n in range(1, 10)), *(f"LPT{n}" for n in range(1, 10))}
@@ -38,14 +39,3 @@ def is_within_root(root: Path, candidate: Path) -> bool:
         return os.path.commonpath((os.path.normcase(str(root)), os.path.normcase(str(actual)))) == os.path.normcase(str(root))
     except (OSError, RuntimeError, ValueError):
         return False
-
-
-def safe_display(value: str) -> str:
-    """Keep useful Unicode while escaping terminal controls and bidi format chars."""
-    parts: list[str] = []
-    for char in value:
-        if unicodedata.category(char) in {"Cc", "Cf", "Cs"}:
-            parts.append(char.encode("unicode_escape").decode("ascii"))
-        else:
-            parts.append(char)
-    return "".join(parts)

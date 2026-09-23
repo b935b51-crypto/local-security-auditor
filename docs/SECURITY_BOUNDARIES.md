@@ -29,6 +29,8 @@ Phase 4 reads manifests and locks as hostile data only. It never installs target
 
 ## Reporting and remediation
 
+Phase 5 correlation accepts only normalized, already redacted scanner results. It does not read target files or copy free-text titles, snippets, descriptions, and arbitrary evidence into graph explanations. Structural IDs are validated and hashed; malformed input and incomplete upstream scanning propagate fixed diagnostics and coverage limits. A relationship is an inference with explicit confidence, never proof of dataflow, exploitation, exfiltration, or malicious intent. Graph joins, paths, time, and memory-facing counts are bounded. See [Correlation](CORRELATION.md) and [Risk Engine](RISK_ENGINE.md).
+
 Treat source snippets, file names, rule metadata, and adapter output as untrusted display data. Escape HTML and remove/control-render terminal escape and control characters. JSON serializers output valid escaped strings and only normalized findings. Reporter output paths must not resolve inside a scanned target by default. Reports must state skipped files and incomplete coverage so a partial scan cannot look clean.
 
 **DO NOT AUTO-MODIFY TARGET CODE.** Future patch flow: Finding → proposed patch → static validation → human approval → apply. Validation must check target identity, patch scope, expected old content, and no path escape. A proposal is data, not permission to write.

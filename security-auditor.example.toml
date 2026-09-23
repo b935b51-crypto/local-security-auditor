@@ -76,3 +76,12 @@ max_provider_bytes_total = 16777216
 max_advisories = 100
 cache_enabled = true
 cache_ttl_seconds = 86400
+
+[correlation]
+enabled = true
+max_findings = 10000
+max_nodes = 20000
+max_edges = 30000
+max_attack_paths = 1000
+max_seconds = 300
+proximity_lines = 5
