@@ -18,11 +18,12 @@
     "ai_reviews": {"type": "array"},
     "remediation_proposals": {"type": "array", "maxItems": 100, "items": {
       "type": "object",
-      "required": ["proposal_id", "finding_id", "strategy", "status", "remediation_steps", "patch_candidate", "human_approval_required"],
+      "required": ["proposal_id", "finding_id", "strategy", "status", "remediation_steps", "patch_candidate", "human_approval_required", "runtime_tests_status"],
       "properties": {
         "strategy": {"enum": ["GUIDANCE_ONLY", "DETERMINISTIC", "AI_ASSISTED"]},
         "status": {"enum": ["GUIDANCE_ONLY", "VALIDATED_STATICALLY", "PARTIAL_VALIDATION", "REJECTED"]},
         "human_approval_required": {"const": true},
+        "runtime_tests_status": {"const": "NOT_RUN"},
         "patch_candidate": {"type": ["object", "null"]}
       }
     }},

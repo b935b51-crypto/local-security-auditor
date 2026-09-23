@@ -208,6 +208,7 @@ def report_view(report: ScanReport) -> dict:
             "assumptions": [safe_text(x, limit=500) for x in p.assumptions],
             "limitations": [safe_text(x, limit=500) for x in p.limitations],
             "human_approval_required": True,
+            "runtime_tests_status": "NOT_RUN",
             "provenance": safe_text(p.provenance, limit=100),
             "patch_candidate": ({"patch_id": safe_text(p.patch_candidate.patch_id, limit=64),
                                  "target_relative_path": safe_path(p.patch_candidate.target_relative_path),

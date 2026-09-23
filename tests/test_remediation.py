@@ -69,6 +69,7 @@ class RemediationTests(unittest.TestCase):
         data = json.loads(json_report.render(report))
         self.assertEqual(data["schema_version"], "1.1")
         self.assertTrue(data["remediation_proposals"][0]["human_approval_required"])
+        self.assertTrue(all(p["runtime_tests_status"] == "NOT_RUN" for p in data["remediation_proposals"]))
         self.assertIn("Remediation proposals", console.render(report))
         self.assertIn("Remediation proposals", html.render(report))
         self.assertNotIn("fixes", json.loads(sarif.render(report))["runs"][0]["results"][0])
