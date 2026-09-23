@@ -1,0 +1,12 @@
+# Operator-supplied example. Never trust a target repository config to relax safety.
+[scan]
+profile = "standard"
+offline = true
+
+[discovery]
+respect_gitignore = false # .env may require scanning even if version-control ignored
+max_file_size_bytes = 4194304
+max_file_count = 100000
+max_directory_depth = 64
+include = []
+exclude = [".git/**", "node_modules/**", ".venv/**", "venv/**", "dist/**", "build/**", "coverage/**", "**/__pycache__/**"]
