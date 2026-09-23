@@ -9,14 +9,14 @@ Read [security boundaries](docs/SECURITY_BOUNDARIES.md) before changing target-h
 ## Project and environment
 
 - Python `>=3.12,<3.13`, selected explicitly; uv manages local environments. Do not alter system Python or another project's environment.
-- The project currently has no runtime dependencies. Standard library only. Phase 1 discovery and Phase 2 native Secret Scanner exist; no scan CLI exists yet.
+- The project currently has no runtime dependencies. Standard library only. Phase 1 discovery, Phase 2 native Secret Scanner, and Phase 3 Python SAST plus Behavior Scanner exist; no scan CLI exists yet.
 - Source lives under `src/security_auditor/`; tests use `unittest` in `tests/`.
 - On Windows PowerShell, after Python 3.12 is available: `$env:PYTHONPATH='src'; py -3.12 -m unittest discover -s tests -v`.
 - `uv run --no-sync --python 3.12 python -m unittest discover -s tests -v` is the intended uv route once a suitable interpreter is installed; verify rather than assuming it works locally.
 
 ## Architecture rules
 
-Core domain and scanner contracts depend only on the Python standard library. Discovery supplies bounded, classified `FileArtifact` data; scanners return `ScannerResult`; normalization and reporting own additional deduplication, redaction checks, escaping, and output. Secret Scanner must redact before constructing a `Finding` and reopen only admitted artifacts through bounded discovery content reads. Scanner plugins cannot control CLI, write reports, modify targets, or execute target code. Optional external tools, online advisory lookup, and AI review live behind adapters and are disabled unless explicitly selected. Read [architecture](docs/ARCHITECTURE.md), [discovery](docs/DISCOVERY.md), [secret scanner](docs/SECRET_SCANNER.md), [finding schema](docs/FINDING_SCHEMA.md), and [scanner contract](docs/SCANNER_CONTRACT.md) when extending contracts.
+Core domain and scanner contracts depend only on the Python standard library. Discovery supplies bounded, classified `FileArtifact` data; scanners return `ScannerResult`; normalization and reporting own additional deduplication, redaction checks, escaping, and output. Scanners reopen only admitted artifacts through bounded discovery content reads. Secret Scanner redacts before constructing a `Finding`; SAST requires a source-to-sink path for injection claims; Behavior Scanner emits neutral operation signals. Scanner plugins cannot control CLI, write reports, modify targets, or execute target code. Optional external tools, online advisory lookup, and AI review live behind adapters and are disabled unless explicitly selected. Read [architecture](docs/ARCHITECTURE.md), [discovery](docs/DISCOVERY.md), [secret scanner](docs/SECRET_SCANNER.md), [SAST](docs/SAST.md), [behavior scanner](docs/BEHAVIOR_SCANNER.md), [finding schema](docs/FINDING_SCHEMA.md), and [scanner contract](docs/SCANNER_CONTRACT.md) when extending contracts.
 
 ## Dependency policy
 

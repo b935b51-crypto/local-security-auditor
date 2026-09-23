@@ -42,6 +42,68 @@ SECRET_HARD_CAPS = {
     "max_elapsed_seconds": 3600,
 }
 
+SAST_HARD_CAPS = {
+    "max_file_bytes": 2 * 1024 * 1024,
+    "max_total_bytes": 128 * 1024 * 1024,
+    "max_ast_nodes": 50000,
+    "max_ast_depth": 200,
+    "max_function_nodes": 20000,
+    "max_findings_per_file": 1000,
+    "max_findings_total": 10000,
+    "max_seconds": 3600,
+}
+BEHAVIOR_HARD_CAPS = {
+    "max_file_bytes": 2 * 1024 * 1024,
+    "max_total_bytes": 128 * 1024 * 1024,
+    "max_line_bytes": 64 * 1024,
+    "max_ast_nodes": 50000,
+    "max_ast_depth": 200,
+    "max_matches_per_file": 1000,
+    "max_findings_total": 10000,
+    "max_seconds": 3600,
+}
+
+
+def _validate_limits(instance: object, caps: dict[str, int]) -> None:
+    if type(getattr(instance, "enabled")) is not bool:
+        raise ValueError("enabled must be boolean")
+    for key, ceiling in caps.items():
+        value = getattr(instance, key)
+        if type(value) is not int or not 1 <= value <= ceiling:
+            raise ValueError(f"{key} outside safe range")
+
+
+@dataclass(frozen=True, slots=True)
+class SASTLimits:
+    enabled: bool = True
+    max_file_bytes: int = 512 * 1024
+    max_total_bytes: int = 32 * 1024 * 1024
+    max_ast_nodes: int = 10000
+    max_ast_depth: int = 100
+    max_function_nodes: int = 5000
+    max_findings_per_file: int = 100
+    max_findings_total: int = 1000
+    max_seconds: int = 300
+
+    def __post_init__(self) -> None:
+        _validate_limits(self, SAST_HARD_CAPS)
+
+
+@dataclass(frozen=True, slots=True)
+class BehaviorLimits:
+    enabled: bool = True
+    max_file_bytes: int = 512 * 1024
+    max_total_bytes: int = 32 * 1024 * 1024
+    max_line_bytes: int = 8 * 1024
+    max_ast_nodes: int = 10000
+    max_ast_depth: int = 100
+    max_matches_per_file: int = 100
+    max_findings_total: int = 1000
+    max_seconds: int = 300
+
+    def __post_init__(self) -> None:
+        _validate_limits(self, BEHAVIOR_HARD_CAPS)
+
 
 @dataclass(frozen=True, slots=True)
 class SecretLimits:
@@ -92,18 +154,22 @@ class AuditConfig:
     follow_reparse_points: bool = False
     limits: DiscoveryLimits = DiscoveryLimits()
     secrets: SecretLimits = SecretLimits()
+    sast: SASTLimits = SASTLimits()
+    behavior: BehaviorLimits = BehaviorLimits()
 
 
 def load_config(path: Path) -> AuditConfig:
     """Load operator-selected TOML; rejects unknown keys and unsafe limit increases."""
     with path.open("rb") as stream:
         raw = tomllib.load(stream)
-    if set(raw) - {"scan", "discovery", "secrets"}:
+    if set(raw) - {"scan", "discovery", "secrets", "sast", "behavior"}:
         raise ValueError("unknown top-level config key")
     scan = raw.get("scan", {})
     discovery = raw.get("discovery", {})
     secrets = raw.get("secrets", {})
-    if not isinstance(scan, dict) or not isinstance(discovery, dict) or not isinstance(secrets, dict):
+    sast = raw.get("sast", {})
+    behavior = raw.get("behavior", {})
+    if any(not isinstance(table, dict) for table in (scan, discovery, secrets, sast, behavior)):
         raise ValueError("invalid config table")
     if set(scan) - {"profile", "offline"} or set(discovery) - {
         "include", "exclude", "default_exclude", "respect_gitignore",
@@ -117,6 +183,10 @@ def load_config(path: Path) -> AuditConfig:
         "enabled", "enable_entropy", "enable_generic_assignment",
     }:
         raise ValueError("unknown secrets config key")
+    if set(sast) - set(SAST_HARD_CAPS) - {"enabled"}:
+        raise ValueError("unknown sast config key")
+    if set(behavior) - set(BEHAVIOR_HARD_CAPS) - {"enabled"}:
+        raise ValueError("unknown behavior config key")
     profile = ScanProfile(scan.get("profile", "standard"))
     offline = scan.get("offline", True)
     respect_gitignore = discovery.get("respect_gitignore", False)
@@ -155,7 +225,14 @@ def load_config(path: Path) -> AuditConfig:
         patterns[key] = tuple(value)
     secret_values = {key: secrets.get(key, getattr(SecretLimits(), key))
                      for key in SecretLimits.__dataclass_fields__}
+    sast_defaults = SASTLimits()
+    sast_values = {key: sast.get(key, getattr(sast_defaults, key))
+                   for key in SASTLimits.__dataclass_fields__}
+    behavior_defaults = BehaviorLimits()
+    behavior_values = {key: behavior.get(key, getattr(behavior_defaults, key))
+                       for key in BehaviorLimits.__dataclass_fields__}
     return AuditConfig(
         profile=profile, offline=offline, respect_gitignore=respect_gitignore,
-        limits=DiscoveryLimits(**values), secrets=SecretLimits(**secret_values), **patterns,
+        limits=DiscoveryLimits(**values), secrets=SecretLimits(**secret_values),
+        sast=SASTLimits(**sast_values), behavior=BehaviorLimits(**behavior_values), **patterns,
     )

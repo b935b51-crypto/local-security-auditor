@@ -32,3 +32,25 @@ max_findings_total = 1000
 max_elapsed_seconds = 300
 enable_entropy = true
 enable_generic_assignment = true
+
+[sast]
+enabled = true
+max_file_bytes = 524288
+max_total_bytes = 33554432
+max_ast_nodes = 10000
+max_ast_depth = 100
+max_function_nodes = 5000
+max_findings_per_file = 100
+max_findings_total = 1000
+max_seconds = 300
+
+[behavior]
+enabled = true
+max_file_bytes = 524288
+max_total_bytes = 33554432
+max_line_bytes = 8192
+max_ast_nodes = 10000
+max_ast_depth = 100
+max_matches_per_file = 100
+max_findings_total = 1000
+max_seconds = 300

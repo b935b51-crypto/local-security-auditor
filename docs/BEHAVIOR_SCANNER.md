@@ -1,0 +1,15 @@
+# Phase 3 Dangerous Behavior Scanner
+
+`BehaviorScanner` is a separate offline plugin over Phase 1 admitted regular text artifacts. Python behavior uses a bounded AST parse and structural calls; PowerShell, batch/CMD, shell, JavaScript/TypeScript, and selected CI text use conservative bounded line rules. The scanner never executes a command, imports target code, launches an executable, or follows a reparse point. A behavior signal describes **what code appears able to do**; it is not a vulnerability verdict, exploitability proof, or claim about author intent.
+
+## Signals
+
+Namespaced `BEHAVIOR.*` rules cover process and shell invocation, PowerShell/CMD/Windows utility use, encoded PowerShell command options, dynamic code, network requests, file deletion, recursive deletion, registry writes and Run-key persistence, scheduled tasks, service changes, credential-sensitive API/path access, environment reads, DLL loading, process termination, security-control changes, and hidden process flags. `DOWNLOAD_EXECUTE` is emitted only when one file contains a narrow visible download → local write → execution chain. Python recognizes direct calls and a single local response binding; PowerShell recognizes matching literal `-OutFile` and `Start-Process` names. These are local structural correlations, not proof of downloaded content or runtime order across branches.
+
+Python AST API matches are normally HIGH confidence for call identification. Text patterns are MEDIUM, reduced to LOW when a line has quote characters because it may contain a string or documentation. Correlations are MEDIUM. Severity is INFO for contextual behaviors unless rule metadata states a more consequential operation. A script that launches PowerShell or uses `shell=True` can generate a neutral behavior finding without a SAST command-injection finding. Taint reaching a shell sink is assessed independently by `SASTScanner`.
+
+## Privacy, limits, and completeness
+
+Only fixed rule descriptions and structural labels reach findings. No command line, URL, downloaded path, credential path, source snippet, or exception text is copied to a result. Relative output paths are sanitized; source evidence is `[REDACTED SOURCE CONTEXT]`. The default caps are 512 KiB per file, 32 MiB total, 8 KiB per text line, 10,000 Python AST nodes, depth 100, 100 matches per file, 1,000 findings total, and 300 seconds. Files, lines, and nodes beyond limits are skipped or cut off with fixed diagnostics and incomplete status. Parser errors and read races are visible as partial coverage. Overall elapsed time is checked around file analysis; a single `ast.parse` is not preempted by a hard CPU timer.
+
+The text rules are heuristics and intentionally lack a PowerShell, CMD, shell, or JavaScript parser. They do not resolve aliases, shell expansions, control flow, obfuscation, or imported JS function aliases. Comment-only lines are skipped, but multiline strings and embedded comments can still produce false positives. The behavior plugin is not a malware classifier. A future validated correlation/risk engine may group signals; it must preserve these independent findings and their uncertainty.
