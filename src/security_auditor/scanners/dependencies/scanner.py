@@ -215,6 +215,9 @@ class DependencyScanner:
             if code not in seen_codes:
                 seen_codes.add(code)
                 message = _MESSAGES[code]
+                if code == "DEPENDENCY_PROVIDER_NO_DATA" and session.offline:
+                    message = ("offline scan has no usable cached vulnerability data for an exact dependency; "
+                               "use --osv or trusted configuration to allow online OSV queries")
                 if (code == "VULN_PROVIDER_BAD_RESPONSE" and provider_error is not None
                         and provider_error.stage in {"batch", "detail", "normalization", "validation"}
                         and provider_error.reason in _SAFE_PROVIDER_REASONS):

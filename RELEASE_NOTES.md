@@ -1,6 +1,22 @@
-# Local Security Auditor 1.0.0
+# Local Security Auditor 1.0.1
 
-**Local final build: ready to tag.** No Git tag, push, GitHub Release, or package-registry publication has been performed.
+**Patch prepared locally; no 1.0.1 tag, push, or release has been performed.** The existing 1.0.0 release remains available.
+
+## What changed
+
+`security-auditor scan PATH --osv --no-ai` now explicitly permits bounded live OSV dependency queries without enabling Gemini. Omitting `--osv` keeps the offline default. `--offline` forces offline mode and cannot be combined with `--osv`. An explicitly selected trusted configuration with `[scan] offline=false` can also permit OSV; CLI flags take precedence. A fresh cache hit can make actual network requests zero even when `--osv` is selected. `scan.offline` records whether network was permitted; OSV request counters record actual network use.
+
+When an offline scan has no usable cached vulnerability data, its diagnostic now explains that OSV is disabled and suggests `--osv` or trusted configuration. `NO_DATA` remains distinct from `NO_MATCH`, and incomplete coverage still blocks the Gate. The CLI, cache, and provider continue to send only validated ecosystem/name/exact-version coordinates to the fixed HTTPS OSV endpoint; AI requires its own explicit choice. The cache key/schema/path algorithms, OSV budgets, JSON 1.1, SARIF 2.1.0, and Gate 1.0 are unchanged.
+
+The earlier installed 1.0.0 report showing 0/341 cache hits remains an observed historical discrepancy. Current source and installed 1.0.0 parsers each resolve the same 341 keys to fresh entries through the production cache API, so no speculative cache change is included in this patch. The original process's effective cache environment was not recorded in the report.
+
+## Installation
+
+Requires Python `>=3.12,<3.13`. Install the built 1.0.1 wheel into a clean environment, for example `uv pip install --python <venv-python> dist/local_security_auditor-1.0.1-py3-none-any.whl`. Add `[gemini]` to the wheel requirement only if the optional Gemini adapter is needed. The package has not been published to PyPI. See [CLI](docs/CLI.md) for usage and exit codes.
+
+## 1.0.0 release history
+
+The 1.0.0 final build was subsequently tagged, pushed, and published as a GitHub Release. The validation details below describe that build at finalization time.
 
 ## Highlights
 

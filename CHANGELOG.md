@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.1 — 2026-09-24
+
+### Changed
+
+- Added `scan --osv` as an explicit online OSV dependency lookup choice. Scans remain offline by default; `--offline` and `--osv` are mutually exclusive, and Gemini remains a separate `--ai` choice.
+- Clarified the offline missing-cache diagnostic so users can distinguish unavailable vulnerability data from a clean `NO_MATCH` result.
+
+### Compatibility
+
+- JSON schema 1.1, SARIF 2.1.0, Gate policy 1.0, scanner rules, and OSV request budgets are unchanged.
+- No cache algorithm or path behavior changed: the reported 0/341 cache-hit discrepancy was not reproducible in the current source or installed environment.
+
 ## 1.0.0 — 2026-09-24
 
 ### Added

@@ -28,13 +28,19 @@ def parser() -> argparse.ArgumentParser:
                                    description="Static security analysis of an untrusted local folder")
     root.add_argument("--version", action="version", version=f"security-auditor {__version__}")
     commands = root.add_subparsers(dest="command", required=True)
-    scan = commands.add_parser("scan", help="scan a local directory without executing its code")
+    scan = commands.add_parser(
+        "scan", help="scan a local directory without executing its code",
+        epilog="Network providers are disabled by default unless explicitly enabled by a trusted option or configuration.",
+    )
     scan.add_argument("path", type=Path)
     scan.add_argument("--profile", choices=[x.value for x in ScanProfile])
     scan.add_argument("--format", choices=("console", "json", "sarif", "html"), default="console")
     scan.add_argument("--output", type=Path)
     scan.add_argument("--force", action="store_true", help="replace an existing regular report file")
-    scan.add_argument("--offline", action="store_true", help="disable all network providers")
+    network = scan.add_mutually_exclusive_group()
+    network.add_argument("--offline", action="store_true", help="force offline; disable all network providers")
+    network.add_argument("--osv", action="store_true",
+                         help="allow online OSV dependency vulnerability queries (does not enable Gemini)")
     ai = scan.add_mutually_exclusive_group()
     ai.add_argument("--ai", action="store_true", help="explicitly request online Gemini advisory review")
     ai.add_argument("--no-ai", action="store_true", help="disable AI review")
@@ -91,7 +97,8 @@ def main(argv: list[str] | None = None) -> int:
         config = load_config(args.config) if args.config else AuditConfig()
         request = ScanRequest(args.path, config,
                               ScanProfile(args.profile) if args.profile else None,
-                              True if args.offline else None, args.ai, args.no_ai,
+                              True if args.offline else False if args.osv else None,
+                              args.ai, args.no_ai,
                               args.propose_fixes, args.ai_remediation)
     except (OSError, ValueError, TypeError):
         print("Invalid trusted configuration or scan options", file=sys.stderr)

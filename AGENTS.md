@@ -12,7 +12,7 @@ Read [security boundaries](docs/SECURITY_BOUNDARIES.md) before changing target-h
 - The default package has no third-party runtime dependencies. Hatchling is build-only. The Phase 6 Gemini adapter uses an optional `gemini` extra and loads only after trusted opt-in. Phase 7 has a `security-auditor scan PATH` CLI, ordered orchestrator, and Console/JSON/SARIF/HTML reporters; see `docs/CLI.md` and `docs/REPORTING.md`.
 - Phase 9 adds a standard-library Tk GUI and a report-only deterministic gate. The CLI lazy-loads GUI code; no GUI dependency is required for scans or gate use. See `docs/GUI.md`, `docs/SECURITY_GATE.md`, and `docs/CODEX_INTEGRATION.md`.
 - Source lives under `src/security_auditor/`; tests use `unittest` in `tests/`.
-- `pyproject.toml` is the single package-version source. The installed 1.0.0 wheel reads distribution metadata; an uninstalled checkout falls back to the same project file. Build with `uv build`; install the built wheel into a separate environment for release checks. `dist/` is ignored and is not committed by default. See `RELEASE_NOTES.md` and the historical `docs/RELEASE_CANDIDATE.md`.
+- `pyproject.toml` is the single package-version source. Installed wheels read distribution metadata; an uninstalled checkout falls back to the same project file. Build with `uv build`; install the built wheel into a separate environment for release checks. `dist/` is ignored and is not committed by default. See `RELEASE_NOTES.md` and the historical `docs/RELEASE_CANDIDATE.md`.
 - On Windows PowerShell, use `uv run python -m unittest discover -s tests -q` from the project root. The project-local uv environment currently uses verified CPython 3.12.11; keep live provider gates unset for offline tests.
 
 ## Architecture rules

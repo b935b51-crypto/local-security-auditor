@@ -1,8 +1,8 @@
 # Project Status
 
 - Last updated: 2026-09-24 (Asia/Taipei)
-- Current milestone: Local Security Auditor `1.0.0` finalization; Phases 0–9 complete and Phase 10 not started
-- Status: **READY TO TAG** after the verified local finalization. The ignored 1.0.0 wheel/sdist were built from the version-bumped source and clean-installed on Python 3.12.11; no tag, push, GitHub Release, or package publication has occurred. The prior [v1 Finalization Assessment](docs/V1_FINALIZATION_ASSESSMENT.md), [Release Candidate](docs/RELEASE_CANDIDATE.md), and [RC validation](docs/RC_REAL_WORLD_VALIDATION.md) remain historical evidence.
+- Current milestone: Local Security Auditor `1.0.1` patch preparation; Phases 0–9 complete and Phase 10 not started
+- Status: **PATCH VALIDATED, HISTORICAL CACHE MISS UNEXPLAINED**. The 1.0.1 wheel/sdist and clean install passed; the original 1.0.0 process did not record its effective cache root, so its 0/341 cache hits cannot be attributed with certainty. The existing 1.0.0 tag and GitHub Release were published before this patch; this task has not tagged or pushed 1.0.1.
 
 ## Implemented
 
@@ -63,9 +63,15 @@
 - Gate JSON has no authenticity signature; trusted workflows must protect report provenance. The report reader's 16 MiB cap and Python parser still consume bounded host resources. Tk cancellation cannot forcibly interrupt one in-flight parser, scanner, or provider call. Clipboard persistence is controlled by Windows after copying; redaction remains heuristic.
 - Native assistive technology, high-DPI/dark mode, real Windows symlink behavior on a host with creation privilege, UNC paths, standalone executable distribution, and installer remain unverified. The clean wheel GUI check covered main-window launch, not every dialog. Redaction remains heuristic. No graph visualization, persistent scan history, manual gate override, or controlled patch application is implemented.
 
+## 1.0.1 patch validation
+
+- The original 1.0.0 installed report at 2026-09-24 10:19:32 UTC had `scan.offline=true`, zero OSV requests, zero cache hits, and 341 exact-key `NO_DATA` states. The four admitted dependency manifests were last modified before that report. All 341 production cache files in the current default root also predate the report; their schema and fresh timestamps are valid.
+- Read-only production parser/cache checks in both the source environment and installed 1.0.0 uv tool environment found 344 inventory records, one first-party root, 341 unique exact keys, and 341 fresh cache hits. Both environments currently resolve the same default cache root. The original process environment/cache root was not captured in the report, so `CACHE_PATH_ENVIRONMENT_MISMATCH` is plausible but unproven. No cache key, path, schema, or accounting change was made.
+- 1.0.1 adds explicit `scan --osv` permission, mutually exclusive with `--offline`. Network precedence is CLI option, then trusted config, then offline default. `--ai` remains independent. The offline no-cache diagnostic now explains why OSV data is unavailable; Gate policy and `NO_DATA`/`NO_MATCH` semantics are unchanged.
+- Python 3.12.11 full offline suite: 199 tests, 193 passed, 0 failed, 6 skipped. The ignored `1.0.1` wheel/sdist have matching metadata and clean archive member/path checks. A repo-external clean wheel install confirmed default offline/no fake provider call and `--osv --no-ai` using a fake provider; the sdist installed offline in a second clean environment.
+- The clean 1.0.1 wheel scanned the authorized Trading Platform twice from outside the repo: `--offline --no-ai` and `--osv --no-ai`. Each had 344 dependency records, 341 cache hits, zero `NO_DATA`, zero OSV requests, dependency and overall COMPLETE, and Gate WARN. `scan.offline` was true and false respectively. Target Git short status was empty before and after. No Gemini call or target execution/mutation occurred.
+
 ## Git and next action
 
-- The ignored local 1.0.0 wheel/sdist are **built and verified**. Release notes and changelog are prepared. The next release action is an annotated `v1.0.0` tag only after explicit user authorization; no tag, push, package upload, or Phase 10 work has started.
-
-- Branch `main`; local checkpoints only, no push or release tag. The pre-existing untracked `uv.lock` and audit reports remain outside Git; ignored `dist/` contains the local 1.0.0 archives. Verify the latest checkpoint and working tree with `git log -1` and `git status`.
-- Core roadmap phases 0–9 are implementation milestones. The 1.0.0 archives include Hardening #8 and passed clean installation plus synthetic/real-world offline checks. Optional future Phase 10 — Controlled Patch Application — has not started.
+- Branch `main`; local 1.0.1 patch checkpoint only. No 1.0.1 tag or push has been performed. Ignored `dist/` contains local 1.0.1 artifacts; pre-existing untracked audit reports and `uv.lock` are preserved.
+- The next decision is whether the historical uncaptured cache environment needs separate observation before tagging 1.0.1. Do not infer a cache bug or alter Gate policy from the old report. Phase 10 remains future work.
