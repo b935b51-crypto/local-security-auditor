@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from security_auditor import __version__  # noqa: E402
 from security_auditor.core.config import load_config  # noqa: E402
 from security_auditor.core.models import (  # noqa: E402
     Confidence, Evidence, Finding, Location, Remediation, ScanProfile, Severity,
@@ -35,7 +36,7 @@ class FoundationTests(unittest.TestCase):
             confidence=Confidence.LOW, location=Location("sample.py", 1, 1),
             evidence=Evidence("redacted", "[REDACTED]"), rationale="test",
             remediation=Remediation("Use a fake test value"), fingerprint="sample",
-            created_at=datetime.now(timezone.utc), tool_version="0.0.0",
+            created_at=datetime.now(timezone.utc), tool_version=__version__,
         )
         self.assertEqual(finding.severity, Severity.HIGH)
         self.assertEqual(finding.confidence, Confidence.LOW)

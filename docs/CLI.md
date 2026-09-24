@@ -2,6 +2,12 @@
 
 `security-auditor scan PATH` runs static analysis of a local folder. **Scanned code is never executed.** The packaged entry point is `security-auditor`; from this checkout use `uv run security-auditor scan PATH --offline`. The project-local uv environment uses verified Python 3.12.11; the system Python is not modified. The default runtime has no third-party dependencies. The Gemini SDK is an optional `gemini` extra. The build backend is Hatchling and is required only to build/install the package.
 
+## Installation and version
+
+For development from this checkout, use `uv sync --python 3.12`, then `uv run security-auditor --version`. To build release artifacts, run `uv build`; the wheel and sdist are written to `dist/`. For a clean wheel installation, create a new Python 3.12 environment outside this checkout and install the **built wheel** with `uv pip install --python <venv-python> <wheel-path>` (or `python -m pip install <wheel-path>` where pip is available). Do not use an editable install for release validation. The installed CLI and `ScanReport.tool.version` obtain version `0.9.0` from the installed distribution metadata; an uninstalled source checkout falls back to this project's `pyproject.toml`.
+
+The core wheel has no third-party runtime requirements. Gemini is optional: install `<wheel-path>[gemini]` in a separate environment, which resolves `google-genai>=2.25.0,<3.0.0`. No Gemini package or key is needed for offline scans. The installed GUI uses `tkinter` from the selected Python installation; a Python build without Tk cannot launch it. The wheel bundles all runtime Python modules, including zh-TW HTML strings. `docs/`, `.agents/skills/`, and `tests/` are repository material, not runtime wheel resources. The sdist contains only package source, build metadata, README, and Hatchling's `.gitignore` entry. See [Release Candidate](RELEASE_CANDIDATE.md) for clean-install evidence and remaining limits.
+
 ```powershell
 security-auditor --version
 security-auditor scan . --offline
