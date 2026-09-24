@@ -1,8 +1,8 @@
 # Project Status
 
 - Last updated: 2026-09-24 (Asia/Taipei)
-- Current milestone: Detection precision golden cases A/B/C on the published `1.0.1` baseline; Phases 0–9 complete and Phase 10 not started
-- Status: **Source precision patch validated; 1.0.2 preparation recommended.** The version remains 1.0.1 in `pyproject.toml`; the existing 1.0.1 distribution does not contain this source change. No tag, push, or publication occurred in this work.
+- Current milestone: 1.0.2 detection-precision patch prepared on the published 1.0.1 baseline; Phases 0–9 complete and Phase 10 not started
+- Status: **1.0.2 READY TO TAG.** Local wheel and sdist contain the A/B/C precision change and passed clean-install and real-world validation. No 1.0.2 tag, push, or publication occurred.
 
 ## Implemented
 
@@ -78,10 +78,10 @@
 - Current Trading Platform inventory remains 344 records and 341 unique exact registry keys. Source and clean-installed production cache resolvers matched; source production API returned 341 fresh hits and zero misses from 342 cache entries. The clean-installed 1.0.1 wheel scanned the target with `--offline --no-ai` and `--osv --no-ai`. Both produced 341 cache hits, zero `NO_DATA`, zero provider requests, Dependencies/Overall COMPLETE, Gate WARN, and matching finding fingerprints/coverage. `scan.offline` was true and false respectively. The target Git status remained empty before and after. No live OSV/Gemini request occurred.
 - The historical 1.0.0 zero-hit cause cannot be reconstructed because that process did not record its effective cache root. It is not reproducible in the current production cache API or clean-installed 1.0.1 scan. No cache implementation, Gate policy, report schema, provider budget, or scanner rule was changed during this recheck. Release notes describe only the demonstrated CLI/UX patch.
 
-## Git and next action
+## Historical 1.0.1 recheck handoff
 
-- The existing 1.0.1 wheel/sdist remain ignored in `dist/` and do not include this source precision patch. Pre-existing untracked audit reports and `uv.lock` remain outside Git. The `v1.0.1` tag already exists; this task did not create a tag or push.
-- Next action: review and prepare a 1.0.2 precision patch. The existing 1.0.1 artifacts do not include this source change. Do not infer project safety from COMPLETE coverage or start Phase 10.
+- At this historical recheck, the 1.0.1 wheel/sdist did not include the later source precision patch. Pre-existing untracked audit reports and `uv.lock` remained outside Git. The `v1.0.1` tag already existed; that recheck did not create a tag or push.
+- Its next recommendation was to prepare a 1.0.2 precision patch. That preparation is recorded below. Do not infer project safety from COMPLETE coverage or start Phase 10.
 
 ## Detection precision golden cases A/B/C
 
@@ -90,3 +90,12 @@
 - Python 3.12.11 full offline suite: 211 tests, 205 passed, 0 failed, 6 skipped. Twelve new golden tests cover secure generation, hardcoded/unknown/shadowed controls, synthetic test fixtures in full-buffer and large-text modes, real-looking provider tokens in tests, and local versus remote/mixed path sources. Existing Gate regression tests passed without policy changes.
 - A baseline Trading Platform source scan had 3 MEDIUM and 14 INFO Findings. After the precision change, the requested `--profile standard --osv --no-ai` scan had 0 MEDIUM, 1 LOW, 14 INFO. Golden A and B no longer appear; golden C remains CWE-22 at LOW. All deterministic components and overall coverage were COMPLETE, with 341 cache hits, zero `NO_DATA`, zero OSV requests, and Gate WARN before and after. The target Git status was empty before and after; no target execution or mutation occurred. A separate offline zh-TW HTML rendering omitted A/B and showed C's local CLI wording.
 - Version recommendation: prepare a 1.0.2 precision patch after review. Do not use the existing 1.0.1 wheel to validate this source-only change. No version bump, new distribution build, tag, push, or Phase 10 work was done here.
+
+## 1.0.2 patch preparation and release readiness
+
+- Baseline: `22aa9b4` on `main` with no tracked user edits. `pyproject.toml` is the single version source and now specifies 1.0.2. Only version and release-facing documentation changed after the committed A/B/C precision fix; JSON schema 1.1, SARIF 2.1.0, Gate policy 1.0, OSV opt-in/budgets, and scanner production behavior are unchanged in this preparation.
+- Python 3.12.11 full offline suite: 211 tests, 205 passed, 0 failed, 6 skipped. The first run exposed stale 1.0.1 metadata in the project `.venv`; reinstalling this project's package as 1.0.2 into that environment resolved only the version-consistency failures. The complete rerun passed.
+- Built 1.0.2 wheel/sdist offline. Archive member and private-path inspection passed. A second offline build had identical member lists and SHA-256 values. Wheel: `local_security_auditor-1.0.2-py3-none-any.whl`, 181122 bytes, SHA-256 `9447106b444cd67f262073cfc2e2e9f8057c4c4f53566d5fd9ba12a5afcbba57`. Sdist: `local_security_auditor-1.0.2.tar.gz`, 132472 bytes, SHA-256 `81559008eb513c422d8693449f0f129f57a007b62d2b356e25fb7f8725de6215`. Both remain ignored in `dist/`.
+- Clean repo-external Python 3.12.11 wheel/core, wheel[gemini] (`google-genai` 2.25.0), and sdist installs passed. Installed CLI/version/help, JSON 1.1, SARIF 2.1.0, static zh-TW HTML/CSP, benign Gate PASS, and all 12 synthetic golden precision tests passed. Optional Gemini extra's offline scan made zero external requests. Source and installed wheel produced the same deterministic synthetic report fields.
+- The installed 1.0.2 wheel scanned the Trading Platform with `--profile standard --osv --no-ai`: 344 dependency records, 341 cache hits, zero `NO_DATA`, zero OSV/Gemini requests, Dependencies and Overall COMPLETE, 0 Critical/High/Medium, 1 Low, 14 Info, and Gate WARN. A/B old Medium false positives were absent; C remained Low/CWE-22 with trust-context wording in zh-TW HTML. The target Git short status was empty before and after. No target code was executed, imported, installed, or modified.
+- Current decision: READY TO TAG v1.0.2 after the local release-preparation commit. The next separate action, only upon user authorization, is annotated tag review and publication. No tag, push, or Phase 10 work is part of this preparation.

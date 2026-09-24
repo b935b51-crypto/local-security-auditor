@@ -1,6 +1,26 @@
-# Local Security Auditor 1.0.1
+# Local Security Auditor 1.0.2
 
-**Patch prepared locally; no 1.0.1 tag, push, or release has been performed.** The existing 1.0.0 release remains available.
+**1.0.2 is prepared locally for release validation. No 1.0.2 tag, push, or publication is part of this preparation.**
+
+## Detection precision patch
+
+- Known secure runtime generators such as appropriately imported Python `secrets` APIs are no longer classified as hardcoded credentials when bounded AST evidence proves the call structure. This is a narrow allowlist; literal credentials and unknown helpers remain eligible for detection.
+- Clearly synthetic generic credentials in test contexts receive narrower treatment. Tests remain scanned, and provider-specific secret patterns remain active in tests. Fixture classification is heuristic.
+- CLI-controlled file paths remain visible as findings. Local operator-controlled flows in developer scripts may receive Low severity while HTTP-controlled or mixed-source flows retain Medium. CLI input can still be untrusted in automation; lower severity does not prove non-exploitability.
+
+No Gate policy, JSON 1.1 schema, SARIF 2.1.0 contract, OSV budgets, or network opt-in behavior changed. Target code is still treated as untrusted data and is not executed or modified during scans. Remediation runtime tests remain `NOT_RUN`; Phase 10 automatic patch application is not implemented. Real symlink and UNC behavior remain incompletely validated on this host.
+
+Install the locally built 1.0.2 wheel in a clean Python `>=3.12,<3.13` environment. The optional `[gemini]` extra remains separate. This document does not imply package-registry publication.
+
+## 1.0.2 validation
+
+Python 3.12.11 offline regression passed 211 tests with 6 expected skips and no failures. Clean wheel and sdist installs reported 1.0.2; the wheel passed all 12 synthetic precision golden tests from outside the source tree. The optional Gemini extra installed offline and an offline AI-requested scan made no external request. Source and installed-wheel deterministic results matched on an inert fixture. The 1.0.2 wheel scanned the Trading Platform with `--profile standard --osv --no-ai`: 341 dependency cache hits, zero `NO_DATA`, zero OSV/Gemini requests, COMPLETE deterministic coverage, and Gate WARN. At that snapshot, the 15 Findings comprised 1 Low and 14 Info; the target Git short status was empty before and after. This observation does not prove project safety. A second offline build produced identical wheel and sdist member lists and SHA-256 values.
+
+## 1.0.1 release history
+
+Version 1.0.1 added the explicit OSV opt-in. The following account records its original local preparation; 1.0.1 was subsequently released.
+
+At the time of the original preparation, no 1.0.1 tag, push, or release had been performed.
 
 ## What changed
 

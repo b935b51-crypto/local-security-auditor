@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.2 — 2026-09-24
+
+### Changed
+
+- Refined generic Secret detection so proven, directly imported Python `secrets` token generators are not described as hardcoded credentials; literal credentials and unknown helpers remain eligible.
+- Narrowed treatment of clearly synthetic generic test credentials without excluding test files or provider-specific secret patterns.
+- Kept local CLI path-write findings visible as Low/CWE-22 with trust-boundary wording; HTTP-controlled and mixed-source paths retain Medium severity.
+
+### Compatibility
+
+- This is a detection-precision patch, not a security vulnerability fix. JSON schema 1.1, SARIF 2.1.0, Gate policy 1.0, OSV opt-in, and provider budgets are unchanged.
+
 ## 1.0.1 — 2026-09-24
 
 ### Changed
