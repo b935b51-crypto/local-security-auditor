@@ -12,7 +12,7 @@ The following rule IDs are emitted by this implementation:
 | --- | --- | --- |
 | `SAST.PYTHON.COMMAND_INJECTION` | Recognized source reaches `os.system`/`os.popen` or a subprocess call with literal `shell=True`, without recognized `shlex.quote` guard | HIGH severity, HIGH confidence; environment source MEDIUM confidence |
 | `SAST.PYTHON.SQL_INJECTION` | Recognized source participates in interpolation/concatenation and reaches `.execute`/`.executemany`/`.raw` without separate parameter argument | HIGH, HIGH |
-| `SAST.PYTHON.PATH_TRAVERSAL` | Recognized source reaches file operation without recognized path-boundary guard | MEDIUM, MEDIUM; component/environment input LOW confidence |
+| `SAST.PYTHON.PATH_TRAVERSAL` | Recognized source reaches file operation without recognized path-boundary guard | MEDIUM, MEDIUM; component/environment input LOW confidence; CLI-only input in a `scripts/` developer script LOW severity with finding retained |
 | `SAST.PYTHON.UNSAFE_DESERIALIZATION` | Recognized source reaches `pickle`/`marshal` load API | HIGH, HIGH |
 | `SAST.PYTHON.DYNAMIC_CODE_EXEC` | Recognized source reaches `eval`/`exec`/`compile` | HIGH, HIGH |
 | `SAST.PYTHON.TLS_VERIFY_DISABLED` | Supported HTTP call explicitly passes literal `verify=False` | MEDIUM, HIGH |
@@ -20,6 +20,8 @@ The following rule IDs are emitted by this implementation:
 | `SAST.PYTHON.INSECURE_TEMP_FILE` | `tempfile.mktemp` is called | MEDIUM, HIGH |
 
 `shlex.quote`, `os.path.basename`, `Path.name`, and `Path.relative_to` are recognized as narrow guards. Recognition does not prove end-to-end safety. A SQL query that is not visibly interpolated does not trigger the SQL injection rule; supplying an additional parameter argument does not make an already interpolated query safe. Constant misuse rules are separate from taint rules. A sink call alone does not establish command injection. Findings carry rule provenance, separate severity/confidence, safe source/sink descriptors, static evidence, and a stable location-based fingerprint. Source snippets and literal values are excluded from `Finding`.
+
+The local CLI path adjustment keeps the CWE-22 finding and changes only its severity and explanatory text. It requires a `scripts/` artifact and a CLI source with no HTTP/network origin, including through a longer merged taint trace. HTTP route/request input remains at the rule's normal severity. A developer CLI argument is not inherently trusted: CI, automation, or a service wrapper can make it attacker controlled. The scanner cannot prove the invocation boundary or exploitability.
 
 ## Limits, failure, and accuracy
 

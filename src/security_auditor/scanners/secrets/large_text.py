@@ -71,7 +71,7 @@ class _LongLine:
     """Scan one logical line without retaining the complete line."""
 
     def __init__(self, inside_key: bool, limit: int, safe_path: str,
-                 *, enable_assignment: bool, enable_entropy: bool):
+                 *, enable_assignment: bool, enable_entropy: bool, test_context: bool):
         self.started_inside_key = inside_key
         self.window = ""
         self.base = 0
@@ -90,6 +90,7 @@ class _LongLine:
         self.safe_path = safe_path
         self.enable_assignment = enable_assignment
         self.enable_entropy = enable_entropy
+        self.test_context = test_context
 
     def feed(self, text: str) -> None:
         context = self.context_tail + text
@@ -126,7 +127,8 @@ class _LongLine:
         private, _ = detectors.private_key(self.window)
         groups.append(private)
         for detector in (detectors.provider, detectors.connection_string, detectors.jwt,
-                         *((detectors.assignment,) if self.enable_assignment else ()),
+                         *((lambda text: detectors.assignment(text, test_context=self.test_context),)
+                           if self.enable_assignment else ()),
                          *((detectors.entropy_context,) if self.enable_entropy else ())):
             groups.append(detector(self.window)[0])
         for candidate in (item for group in groups for item in group):
@@ -183,6 +185,7 @@ def scan_large_artifact(root: Path, artifact: FileArtifact, limits: SecretLimits
     rule_counts: dict[str, int] = {}
     max_raw_candidates = min(100_000, max(64, limits.max_findings_per_file * _RULE_IDS))
     detection_stopped = False
+    is_test = detectors.test_context_path(artifact.path)
 
     def accept_line(items: list[SecretCandidate], *, long: bool, incomplete: bool,
                     candidate_count: int = 0) -> None:
@@ -234,7 +237,8 @@ def scan_large_artifact(root: Path, artifact: FileArtifact, limits: SecretLimits
                 private, result.inside_key = detectors.private_key(line)
                 groups = [private]
                 for detector in (detectors.provider, detectors.connection_string, detectors.jwt,
-                                 *((detectors.assignment,) if limits.enable_generic_assignment else ()),
+                                 *((lambda text: detectors.assignment(text, test_context=is_test),)
+                                   if limits.enable_generic_assignment else ()),
                                  *((detectors.entropy_context,) if limits.enable_entropy else ())):
                     found, suppressed = detector(line)
                     groups.append(found)
@@ -261,6 +265,7 @@ def scan_large_artifact(root: Path, artifact: FileArtifact, limits: SecretLimits
                 result.inside_key, max_raw_candidates, result.safe_path,
                 enable_assignment=limits.enable_generic_assignment,
                 enable_entropy=limits.enable_entropy,
+                test_context=is_test,
             )
             long_line.feed(short_line)
             long_line.feed(piece)

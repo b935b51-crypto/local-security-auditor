@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 from dataclasses import replace
 from datetime import datetime, timezone
 from io import StringIO
@@ -42,6 +43,57 @@ _DIAGNOSTIC_TEXT = {
     "SECRET_FINGERPRINT_COLLISION": "redacted finding anchors collided; distinct safe identities were assigned",
     "SECRET_LARGE_TEXT_INCOMPLETE": "bounded large-text rule context or match budget was incomplete",
 }
+
+
+def _trusted_generated_lines(source: str) -> frozenset[int]:
+    """Prove a direct standard-library secrets call without a local shadow.
+
+    Parsing is only attempted for a small Python source containing the exact
+    module call syntax. Any uncertainty leaves the normal detector enabled.
+    """
+    if len(source) > 128 * 1024 or "secrets.token_" not in source:
+        return frozenset()
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError, RecursionError, MemoryError):
+        return frozenset()
+    nodes: list[ast.AST] = []
+    for node in ast.walk(tree):
+        nodes.append(node)
+        if len(nodes) > 20_000:
+            return frozenset()
+    imports = [node.lineno for node in tree.body if isinstance(node, ast.Import)
+               for alias in node.names if alias.name == "secrets" and alias.asname in {None, "secrets"}]
+    if not imports:
+        return frozenset()
+    for node in nodes:
+        if isinstance(node, ast.Name) and node.id == "secrets" and isinstance(node.ctx, (ast.Store, ast.Del)):
+            return frozenset()
+        if (isinstance(node, ast.Attribute) and isinstance(node.ctx, (ast.Store, ast.Del))
+                and isinstance(node.value, ast.Name) and node.value.id == "secrets"):
+            return frozenset()
+        if isinstance(node, ast.arg) and node.arg == "secrets":
+            return frozenset()
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name == "secrets":
+            return frozenset()
+        if isinstance(node, ast.ExceptHandler) and node.name == "secrets":
+            return frozenset()
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                bound = alias.asname or alias.name.split(".", 1)[0]
+                if bound == "secrets" and not (isinstance(node, ast.Import) and alias.name == "secrets"):
+                    return frozenset()
+    allowed = {"token_urlsafe", "token_hex", "token_bytes"}
+    lines = set()
+    for node in nodes:
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        call = node.value
+        if (isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
+                and call.func.attr in allowed and isinstance(call.func.value, ast.Name)
+                and call.func.value.id == "secrets" and any(line < node.lineno for line in imports)):
+            lines.add(node.lineno)
+    return frozenset(lines)
 
 
 def _deduplicate(candidates: list[SecretCandidate]) -> tuple[list[SecretCandidate], int]:
@@ -204,6 +256,9 @@ class SecretScanner:
                 finally:
                     del data
                 full_buffer_files += 1
+            generated_lines = (_trusted_generated_lines(source)
+                               if large is None and artifact.language.language == "python" else frozenset())
+            is_test = detectors.test_context_path(artifact.path)
             scanned += 1
             file_candidates: list[tuple[int, SecretCandidate]] = (
                 large.candidates if large is not None else [])
@@ -236,7 +291,9 @@ class SecretScanner:
                 groups = [private]
                 for detector in (detectors.provider, detectors.connection_string,
                                  detectors.jwt,
-                                 *((detectors.assignment,) if self.limits.enable_generic_assignment else ()),
+                                 *((lambda text: detectors.assignment(
+                                     text, trusted_generated=line_number in generated_lines,
+                                     test_context=is_test),) if self.limits.enable_generic_assignment else ()),
                                  *((detectors.entropy_context,) if self.limits.enable_entropy else ())):
                     try:
                         items, suppressed = detector(line)

@@ -6,6 +6,7 @@ import base64
 import binascii
 import json
 import re
+from pathlib import PurePosixPath
 
 from security_auditor.core.models import Confidence, Severity
 from .models import SecretCandidate
@@ -37,6 +38,19 @@ ASSIGNMENT = re.compile(
 JWT = re.compile(r"\b[A-Za-z0-9_-]{8,512}\.[A-Za-z0-9_-]{8,1024}\.[A-Za-z0-9_-]{8,1024}\b")
 ENTROPY_VALUE = re.compile(r"(?<![\w])(?P<value>[A-Za-z0-9_-]{20,128})(?![\w])")
 SECRET_CONTEXT = re.compile(r"\b(?:api[_-]?key|client[_-]?secret|access[_-]?token|auth[_-]?token|password|passwd|secret|token|bearer)\b", re.I)
+_SECURE_GENERATOR = re.compile(r"secrets\.(?:token_urlsafe|token_hex|token_bytes)\((?:[0-9]{1,3})?\)")
+_SYNTHETIC_TEST_VALUE = re.compile(
+    r"(?:fake|dummy|synthetic|invalid|sample|example|test)[_-][A-Za-z0-9_-]{1,63}|"
+    r"not[_-]a[_-][A-Za-z0-9_-]{1,63}|do[_-]not[_-]echo", re.I,
+)
+
+
+def test_context_path(path: str) -> bool:
+    parts = PurePosixPath(path.replace("\\", "/")).parts
+    name = parts[-1].casefold() if parts else ""
+    return any(part.casefold() in {"test", "tests"} for part in parts[:-1]) or (
+        name.startswith("test_") or name.endswith("_test.py")
+    )
 
 
 def private_key(line: str) -> tuple[list[SecretCandidate], bool]:
@@ -87,14 +101,23 @@ def _literal(value: str) -> str:
     return value
 
 
-def assignment(line: str) -> tuple[list[SecretCandidate], int]:
+def assignment(line: str, *, trusted_generated: bool = False,
+               test_context: bool = False) -> tuple[list[SecretCandidate], int]:
     result: list[SecretCandidate] = []
     suppressed = 0
     if is_hash_context(line):
         return result, suppressed
     for match in ASSIGNMENT.finditer(line):
-        value = _literal(match.group("value"))
+        raw_value = match.group("value")
+        value = _literal(raw_value)
         key = match.group("key").lower().replace("-", "_")
+        if trusted_generated and raw_value == value and _SECURE_GENERATOR.fullmatch(value):
+            suppressed += 1
+            continue
+        if (test_context and value.islower() and not any(char.isdigit() for char in value)
+                and _SYNTHETIC_TEST_VALUE.fullmatch(value)):
+            suppressed += 1
+            continue
         if is_placeholder(value) or is_uuid(value) or value.startswith(("os.getenv(", "os.environ[", "process.env.", "env.")):
             suppressed += 1
             continue

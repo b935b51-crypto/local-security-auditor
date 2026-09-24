@@ -1,8 +1,8 @@
 # Project Status
 
 - Last updated: 2026-09-24 (Asia/Taipei)
-- Current milestone: Local Security Auditor `1.0.1` release readiness; Phases 0–9 complete and Phase 10 not started
-- Status: **READY TO TAG v1.0.1** after a current-behavior recheck. The historical 1.0.0 0/341 cache-hit cause remains unproven, but current source and clean-installed 1.0.1 each use the same production cache root and all 341 current keys resolve to fresh entries. No current release blocker was found. The existing 1.0.0 release was published earlier; this task did not tag, push, or publish 1.0.1.
+- Current milestone: Detection precision golden cases A/B/C on the published `1.0.1` baseline; Phases 0–9 complete and Phase 10 not started
+- Status: **Source precision patch validated; 1.0.2 preparation recommended.** The version remains 1.0.1 in `pyproject.toml`; the existing 1.0.1 distribution does not contain this source change. No tag, push, or publication occurred in this work.
 
 ## Implemented
 
@@ -80,5 +80,13 @@
 
 ## Git and next action
 
-- The existing 1.0.1 wheel/sdist remain ignored in `dist/`; no rebuild was needed. This recheck changes documentation only. Pre-existing untracked audit reports and `uv.lock` remain outside Git. No 1.0.1 tag or push has been performed.
-- Next release action, only after a separate user instruction: create annotated `v1.0.1` tag and, if authorized, push `main` and the tag. Do not infer project safety from COMPLETE coverage or start Phase 10.
+- The existing 1.0.1 wheel/sdist remain ignored in `dist/` and do not include this source precision patch. Pre-existing untracked audit reports and `uv.lock` remain outside Git. The `v1.0.1` tag already exists; this task did not create a tag or push.
+- Next action: review and prepare a 1.0.2 precision patch. The existing 1.0.1 artifacts do not include this source change. Do not infer project safety from COMPLETE coverage or start Phase 10.
+
+## Detection precision golden cases A/B/C
+
+- The source Secret Scanner now suppresses a generic CWE-798 assignment for a direct `secrets.token_urlsafe`/`token_hex`/`token_bytes` call only when a bounded small-file Python AST confirms an earlier top-level `import secrets` and no lexical shadowing. Literal credentials and unfamiliar helpers stay eligible. Test paths stay in scope; only a narrow lowercase, digit-free synthetic generic assignment is suppressed. Provider-specific shapes remain eligible at their original severity.
+- The Python SAST path finding remains present for a CLI-only source in a `scripts/` developer script, but its severity is LOW and its description states that risk depends on who controls invocation. Preserved HTTP/network origin in merged taint keeps remote input at the normal MEDIUM severity even after a long trace. CWE-22, Finding shape, JSON 1.1, SARIF 2.1.0, and Gate 1.0 are unchanged.
+- Python 3.12.11 full offline suite: 211 tests, 205 passed, 0 failed, 6 skipped. Twelve new golden tests cover secure generation, hardcoded/unknown/shadowed controls, synthetic test fixtures in full-buffer and large-text modes, real-looking provider tokens in tests, and local versus remote/mixed path sources. Existing Gate regression tests passed without policy changes.
+- A baseline Trading Platform source scan had 3 MEDIUM and 14 INFO Findings. After the precision change, the requested `--profile standard --osv --no-ai` scan had 0 MEDIUM, 1 LOW, 14 INFO. Golden A and B no longer appear; golden C remains CWE-22 at LOW. All deterministic components and overall coverage were COMPLETE, with 341 cache hits, zero `NO_DATA`, zero OSV requests, and Gate WARN before and after. The target Git status was empty before and after; no target execution or mutation occurred. A separate offline zh-TW HTML rendering omitted A/B and showed C's local CLI wording.
+- Version recommendation: prepare a 1.0.2 precision patch after review. Do not use the existing 1.0.1 wheel to validate this source-only change. No version bump, new distribution build, tag, push, or Phase 10 work was done here.

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from time import monotonic
 from typing import Sequence
@@ -9,7 +10,7 @@ from typing import Sequence
 from security_auditor.core.config import SASTLimits
 from security_auditor.core.models import (
     ArtifactKind, ContentKind, FileArtifact, RuleReference, ScanSession,
-    ScannerDiagnostic, ScannerMetadata, ScannerResult, ScannerSummary,
+    ScannerDiagnostic, ScannerMetadata, ScannerResult, ScannerSummary, Severity,
 )
 from security_auditor.discovery.content import ArtifactReadError, read_admitted_artifact
 from security_auditor.discovery.models import DiscoveryResult, ScanCompleteness
@@ -17,6 +18,7 @@ from security_auditor.scanners._common import make_finding
 from .python.engine import PythonTaintAnalyzer
 from .python.frontend import ASTBudgetError, PythonParseError, parse_python
 from .python.rules import RULES, RULE_BY_ID
+from .python.sources import SourceCategory
 
 
 _MESSAGES = {
@@ -159,6 +161,12 @@ class SASTScanner:
             for hit in analysis.hits:
                 rule = RULE_BY_ID[hit.rule_id]
                 taint = hit.taint
+                local_cli_path = (
+                    hit.rule_id == "SAST.PYTHON.PATH_TRAVERSAL"
+                    and taint is not None and taint.category is SourceCategory.CLI_INPUT
+                    and artifact.path.replace("\\", "/").split("/", 1)[0].casefold() == "scripts"
+                    and not taint.remote_origin
+                )
                 evidence = (("sink_kind", hit.sink),)
                 source_label = None
                 if taint:
@@ -166,10 +174,20 @@ class SASTScanner:
                     evidence += (("source_category", taint.category.value),
                                  ("source_line", str(taint.source_line)),
                                  ("trace", " > ".join(f"{label}:{line}" for label, line in taint.trace)))
-                findings.append(make_finding(rule, self.metadata.id, artifact.path, hit.line,
-                                             hit.column, anchor=hit.anchor, evidence=evidence,
-                                             source=source_label, sink=hit.sink,
-                                             confidence=hit.confidence))
+                finding = make_finding(rule, self.metadata.id, artifact.path, hit.line,
+                                       hit.column, anchor=hit.anchor, evidence=evidence,
+                                       source=source_label, sink=hit.sink,
+                                       confidence=hit.confidence,
+                                       severity=Severity.LOW if local_cli_path else None)
+                if local_cli_path:
+                    finding = replace(
+                        finding,
+                        description=("A local CLI-supplied path reaches a filesystem operation without "
+                                     "a recognized boundary guard. Risk depends on who controls the invocation."),
+                        rationale=("The scanned developer script uses local operator input; automation "
+                                   "or a service wrapper could still make this path untrusted."),
+                    )
+                findings.append(finding)
                 if len(findings) >= self.limits.max_findings_total:
                     note("SAST_FINDING_LIMIT_REACHED")
                     state = "aborted"

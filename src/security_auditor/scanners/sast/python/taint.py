@@ -20,6 +20,7 @@ class Taint:
     trace: tuple[tuple[str, int], ...]
     transformed: bool = False
     guards: frozenset[str] = frozenset()
+    remote_origin: bool = False
 
     def step(self, label: str, line: int, *, transformed: bool = False,
              guard: str | None = None) -> Taint:
@@ -36,6 +37,9 @@ def merge(left: Taint | None, right: Taint | None, line: int) -> Taint | None:
     preferred = left if (left.source_line, left.category.value) <= (right.source_line, right.category.value) else right
     return replace(preferred, transformed=left.transformed or right.transformed,
                    guards=left.guards & right.guards,
+                   remote_origin=(left.remote_origin or right.remote_origin or
+                                  left.category in {SourceCategory.HTTP_INPUT, SourceCategory.NETWORK_INPUT} or
+                                  right.category in {SourceCategory.HTTP_INPUT, SourceCategory.NETWORK_INPUT}),
                    trace=(preferred.trace + (("merge", line),))[-MAX_TRACE:])
 
 
