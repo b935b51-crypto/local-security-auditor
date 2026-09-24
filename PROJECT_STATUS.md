@@ -2,7 +2,7 @@
 
 - Last updated: 2026-09-24 (Asia/Taipei)
 - Current milestone: v1 Release Candidate baseline `0.9.0` after completed Phases 0–9; Phase 10 has not started
-- Status: Hardening #8 adds source-only bounded large-text Secret scanning. The authorized offline Trading Platform re-scan completed the 2,169,199-byte log with nine segmented long lines; Discovery, Secrets, SAST, Behavior, Dependencies, Correlation, and Overall were COMPLETE, with Gate WARN for nonblocking Findings. The 0.9.0 RC wheel/sdist were previously verified at the older source baseline and are now **stale**; rebuild and clean smoke are required before treating distribution artifacts as current. See [Secret Scanner](docs/SECRET_SCANNER.md), [RC validation](docs/RC_REAL_WORLD_VALIDATION.md), and [Release Candidate](docs/RELEASE_CANDIDATE.md).
+- Status: The 0.9.0 RC wheel/sdist have been rebuilt from Hardening #8 source checkpoint `77805e6` and clean-install verified under Python 3.12.11. Installed-wheel synthetic large-text behavior matched source, and its offline Trading Platform re-scan completed with all deterministic coverage components COMPLETE, Gate WARN, 341 dependency cache hits, and zero OSV requests. The ignored `dist/` archives are **REFRESHED AND VERIFIED AFTER HARDENING #8**. See [Release Candidate](docs/RELEASE_CANDIDATE.md) and [RC validation](docs/RC_REAL_WORLD_VALIDATION.md).
 
 ## Implemented
 
@@ -23,6 +23,8 @@
 - Release hardening #5 identifies a first-party root only from matching admitted root `pyproject.toml` project identity and a single root `uv.lock` `editable="."` entry. Same-name registry, absent/conflicting evidence, outside-root editable, and other local path entries remain distinct and conservatively covered. The root stays in inventory but does not count unresolved or reach OSV. JSON 1.1 additively reports first-party and unresolved-third-party counts; zh-TW HTML displays them. Secret per-file diagnostics now attach the existing redacted relative path where safely attributable. The Secret 1 MiB default and hard ceiling, default scan scope, and Gate policy are unchanged.
 
 ## Verification
+
+- RC Artifact Refresh #2 (2026-09-24): `uv run --offline --no-sync python -m unittest discover -s tests -q` was rerun before build on Python 3.12.11: 193 tests, 187 passed, 0 failed, 6 skipped. `uv build --offline` rebuilt the ignored 0.9.0 wheel/sdist. Clean core, Gemini-extra, and sdist installs passed; installed-wheel Hardening #8 cross-boundary, redaction, long-line, fingerprint, invalid UTF-8, and Gate cases passed. Hardening #4–#7 quick checks used only synthetic data/fake OSV. Source and wheel stable report fields matched. The installed wheel scanned Trading Platform offline with all deterministic coverage COMPLETE, Gate WARN, 341 cache hits, zero live provider requests, and unchanged target Git/log hash. A second build matched filenames, metadata versions, and member lists; temp material was removed. See [Release Candidate](docs/RELEASE_CANDIDATE.md).
 
 - Hardening #8 source regression: `uv run --offline --no-sync python --version` returned Python 3.12.11. `uv run --offline --no-sync python -m unittest discover -s tests -q` ran **193 tests: 187 passed, 0 failed, 6 skipped**. Synthetic boundary tests covered UTF-8/CRLF, provider/JWT/assignment/URL/AWS/private-key split matches, overlap deduplication, 64 KiB/128 KiB/512 KiB/1 MiB logical lines, fingerprint stability, limits, reporting, and Gate behavior. In a repo-external inert benchmark, 2 MiB scanned in 4.589 s at 0.49 MiB peak traced Python allocation; 4 MiB scanned in 9.247 s at 0.48 MiB. This is a synthetic allocation measurement, not a universal memory bound or performance guarantee. The authorized target's large log was analyzed offline with no Secret diagnostic, 341 dependency cache hits, and zero provider requests. Target Git porcelain status and log metadata were unchanged before/after; the target was already dirty. No target code was executed or modified by the auditor.
 
@@ -59,7 +61,7 @@
 
 ## Git and next action
 
-- The 0.9.0 wheel/sdist remain previously clean-smoke verified artifacts but are **stale against Hardening #8 source**. The next recommended work, only with separate authorization, is an RC artifact refresh and clean smoke. Phase 10 has not started.
+- The 0.9.0 wheel/sdist are **refreshed and verified after Hardening #8**. The next recommended work, only with separate authorization, is a v1 finalization assessment and a decision whether to advance from 0.9.0 RC to 1.0.0. Phase 10 has not started.
 
 - Branch `main`; local checkpoints only, no push or release tag. The pre-existing untracked `uv.lock` and Mosaic reports remain outside Git; ignored `dist/` contains local RC build artifacts. Verify the latest checkpoint and working tree with `git log -1` and `git status`.
-- Core roadmap phases 0–9 are implementation milestones. The previously rebuilt 0.9.0 wheel/sdist do **not** include Hardening #8. The bounded full-project OSV query is complete; its current exact versions returned no matching advisories and replayed from cache without network. Optional future Phase 10 — Controlled Patch Application — has not started.
+- Core roadmap phases 0–9 are implementation milestones. The current 0.9.0 wheel/sdist include Hardening #8 and passed clean installation plus synthetic/real-world offline checks. The bounded full-project OSV query was previously completed and replayed from cache without network in this validation. Optional future Phase 10 — Controlled Patch Application — has not started.
