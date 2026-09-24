@@ -22,6 +22,7 @@ from security_auditor.discovery.content import ArtifactReadError, read_admitted_
 from security_auditor.discovery.models import DiscoveryResult, ScanCompleteness
 from . import detectors
 from .fingerprint import finding_fingerprint
+from .js_source import JS_LANGUAGES, pending_assignment_prefix, proven_environment_parameters
 from .large_text import LargeTextDeadline, LargeTextResult, scan_large_artifact
 from .models import SecretCandidate
 from .rules import RULES, RULE_BY_ID
@@ -258,6 +259,9 @@ class SecretScanner:
                 full_buffer_files += 1
             generated_lines = (_trusted_generated_lines(source)
                                if large is None and artifact.language.language == "python" else frozenset())
+            is_js = artifact.language.language in JS_LANGUAGES
+            proven_environment = (proven_environment_parameters(source)
+                                  if is_js and large is None else frozenset())
             is_test = detectors.test_context_path(artifact.path)
             scanned += 1
             file_candidates: list[tuple[int, SecretCandidate]] = (
@@ -266,6 +270,7 @@ class SecretScanner:
             rule_counts: dict[str, int] = {}
             inside_key = False
             file_limited = False
+            pending_js_prefix: str | None = None
             for line_number, line in enumerate(StringIO(source), 1):
                 if monotonic() - started >= self.limits.max_elapsed_seconds:
                     note("SECRET_SCAN_ABORTED")
@@ -279,9 +284,21 @@ class SecretScanner:
                     limits_hit += 1
                     continue
                 if inside_key:
+                    pending_js_prefix = None
                     if detectors.PRIVATE_END.search(line):
                         inside_key = False
                     continue
+                prefix = (pending_js_prefix or "") if is_js else ""
+                generic_line = prefix + line if is_js else line
+                pending_js_prefix = pending_assignment_prefix(line) if is_js else None
+
+                def js_positions(found: tuple[list[SecretCandidate], int]) -> tuple[list[SecretCandidate], int]:
+                    items, suppressed = found
+                    if not prefix:
+                        return items, suppressed
+                    return ([replace(item, start=item.start - len(prefix),
+                                     end=item.end - len(prefix))
+                             for item in items if item.start >= len(prefix)], suppressed)
                 try:
                     private, inside_key = detectors.private_key(line)
                 except Exception:
@@ -291,10 +308,14 @@ class SecretScanner:
                 groups = [private]
                 for detector in (detectors.provider, detectors.connection_string,
                                  detectors.jwt,
-                                 *((lambda text: detectors.assignment(
-                                     text, trusted_generated=line_number in generated_lines,
-                                     test_context=is_test),) if self.limits.enable_generic_assignment else ()),
-                                 *((detectors.entropy_context,) if self.limits.enable_entropy else ())):
+                                 *((lambda text: js_positions(detectors.assignment(
+                                     generic_line, trusted_generated=line_number in generated_lines,
+                                     test_context=is_test, js_literal_only=is_js,
+                                     proven_environment=proven_environment)),)
+                                   if self.limits.enable_generic_assignment else ()),
+                                 *((lambda text: js_positions(detectors.entropy_context(
+                                     generic_line, js_literal_only=is_js, test_context=is_test)),)
+                                   if self.limits.enable_entropy else ())):
                     try:
                         items, suppressed = detector(line)
                         groups.append(items)

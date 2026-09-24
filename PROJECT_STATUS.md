@@ -1,8 +1,8 @@
 # Project Status
 
 - Last updated: 2026-09-24 (Asia/Taipei)
-- Current milestone: 1.0.2 detection-precision patch prepared on the published 1.0.1 baseline; Phases 0–9 complete and Phase 10 not started
-- Status: **1.0.2 READY TO TAG.** Local wheel and sdist contain the A/B/C precision change and passed clean-install and real-world validation. No 1.0.2 tag, push, or publication occurred.
+- Current milestone: v1.0.3 Secret Source-Awareness Hardening v2 on the 1.0.2 source baseline; Phases 0–9 complete and Phase 10 not started
+- Status: **JS/TS Secret precision validated in source; 1.0.3 patch preparation remains a separate step.** The package version remains 1.0.2, and existing 1.0.2 distribution artifacts do not contain this source change. No tag, push, or publication occurred in this hardening.
 
 ## Implemented
 
@@ -99,3 +99,12 @@
 - Clean repo-external Python 3.12.11 wheel/core, wheel[gemini] (`google-genai` 2.25.0), and sdist installs passed. Installed CLI/version/help, JSON 1.1, SARIF 2.1.0, static zh-TW HTML/CSP, benign Gate PASS, and all 12 synthetic golden precision tests passed. Optional Gemini extra's offline scan made zero external requests. Source and installed wheel produced the same deterministic synthetic report fields.
 - The installed 1.0.2 wheel scanned the Trading Platform with `--profile standard --osv --no-ai`: 344 dependency records, 341 cache hits, zero `NO_DATA`, zero OSV/Gemini requests, Dependencies and Overall COMPLETE, 0 Critical/High/Medium, 1 Low, 14 Info, and Gate WARN. A/B old Medium false positives were absent; C remained Low/CWE-22 with trust-context wording in zh-TW HTML. The target Git short status was empty before and after. No target code was executed, imported, installed, or modified.
 - Current decision: READY TO TAG v1.0.2 after the local release-preparation commit. The next separate action, only upon user authorization, is annotated tag review and publication. No tag, push, or Phase 10 work is part of this preparation.
+
+## v1.0.3 Secret Source-Awareness Hardening v2
+
+- Baseline `c921944` on `main` had no tracked user edits; existing untracked audit reports and `uv.lock` were left untouched. The version remains 1.0.2. The change is limited to JS/TS Secret Scanner generic assignment and entropy precision, 24 synthetic regression tests, and documentation. It does not add JS/TS SAST, change provider-specific detectors, or alter JSON 1.1, SARIF 2.1.0, Gate 1.0, network opt-in, or provider budgets.
+- Bounded lexical source-literal evidence prevents runtime expression identifiers, property names, and function calls from being classified as hardcoded credential material. Direct `process.env` and a statically typed `NodeJS.ProcessEnv` parameter can be recognized as references; `.trim()` and `?.trim()` preserve that interpretation. Literal fallbacks, static template text, and nested interpolation literals remain eligible. Unknown config objects and helpers are not certified as trusted sources. This is source classification, not proof of runtime origin or full JS/TS parsing.
+- Test files remain in scope. Narrow synthetic markers and the observed private-note fixture pattern suppress generic Secret false positives only in test context. Provider-specific secret rules remain active. UUID, hash, and opaque-literal controls are covered by the new golden tests; a provider-shaped synthetic token in a test remains HIGH.
+- Python 3.12.11 full offline regression: 235 tests, 229 passed, 0 failed, 6 skipped. The 24 new synthetic tests include 16 primary source-awareness cases and controls for cross-line location, static template/fallback literals, unknown helpers, marker boundaries, and bounded large-text scanning. Default tests made no live OSV or Gemini requests.
+- StockDashboard baseline: 16 Secret and 14 Behavior findings, 0 Critical/High, 3 Medium, 21 Low, 6 Info; all coverage COMPLETE and Gate WARN. Final modified-source `--profile standard --osv --no-ai` scan: 0 Secret and the same 14 Behavior finding fingerprints, 0 Critical/High/Medium, 8 Low, 6 Info; Discovery, Secrets, SAST, Behavior, Dependencies, Correlation, and overall coverage COMPLETE with zero diagnostics. All 195 exact dependencies used fresh cache entries; no OSV or Gemini request was sent. Gate remains WARN under policy 1.0. StockDashboard Git short status was empty before and after, with no target execution, import, install, or modification.
+- Next recommendation: prepare a 1.0.3 precision patch from this committed source after review. Do not claim the existing 1.0.2 wheel contains this change; no version bump, distribution build, tag, push, or Phase 10 work occurred here.

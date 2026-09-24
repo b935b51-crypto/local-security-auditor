@@ -13,6 +13,7 @@ from security_auditor.core.models import Confidence, FileArtifact
 from security_auditor.discovery.content import iter_admitted_artifact_chunks
 
 from . import detectors
+from .js_source import JS_LANGUAGES, pending_assignment_prefix
 from .models import SecretCandidate
 from .placeholders import is_hash_context
 
@@ -71,7 +72,8 @@ class _LongLine:
     """Scan one logical line without retaining the complete line."""
 
     def __init__(self, inside_key: bool, limit: int, safe_path: str,
-                 *, enable_assignment: bool, enable_entropy: bool, test_context: bool):
+                 *, enable_assignment: bool, enable_entropy: bool,
+                 test_context: bool, js_literal_only: bool):
         self.started_inside_key = inside_key
         self.window = ""
         self.base = 0
@@ -91,6 +93,7 @@ class _LongLine:
         self.enable_assignment = enable_assignment
         self.enable_entropy = enable_entropy
         self.test_context = test_context
+        self.js_literal_only = js_literal_only
 
     def feed(self, text: str) -> None:
         context = self.context_tail + text
@@ -127,9 +130,14 @@ class _LongLine:
         private, _ = detectors.private_key(self.window)
         groups.append(private)
         for detector in (detectors.provider, detectors.connection_string, detectors.jwt,
-                         *((lambda text: detectors.assignment(text, test_context=self.test_context),)
+                         *((lambda text: detectors.assignment(
+                             text, test_context=self.test_context,
+                             js_literal_only=self.js_literal_only),)
                            if self.enable_assignment else ()),
-                         *((detectors.entropy_context,) if self.enable_entropy else ())):
+                         *((lambda text: detectors.entropy_context(
+                             text, js_literal_only=self.js_literal_only,
+                             test_context=self.test_context),)
+                           if self.enable_entropy else ())):
             groups.append(detector(self.window)[0])
         for candidate in (item for group in groups for item in group):
             absolute_end = self.base + candidate.end
@@ -186,6 +194,8 @@ def scan_large_artifact(root: Path, artifact: FileArtifact, limits: SecretLimits
     max_raw_candidates = min(100_000, max(64, limits.max_findings_per_file * _RULE_IDS))
     detection_stopped = False
     is_test = detectors.test_context_path(artifact.path)
+    is_js = artifact.language.language in JS_LANGUAGES
+    pending_prefix: str | None = None
 
     def accept_line(items: list[SecretCandidate], *, long: bool, incomplete: bool,
                     candidate_count: int = 0) -> None:
@@ -217,29 +227,53 @@ def scan_large_artifact(root: Path, artifact: FileArtifact, limits: SecretLimits
             result.candidates.append((line_number, item))
 
     def finish_line() -> None:
-        nonlocal line_number, short_line, long_line
+        nonlocal line_number, short_line, long_line, pending_prefix
         if detection_stopped:
             line_number += 1
             short_line = ""
             long_line = None
+            pending_prefix = None
             return
         if long_line is not None:
+            if pending_prefix is not None and is_js:
+                # A cross-line expression entering a long window cannot be
+                # proved by the one-line continuation; disclose incompleteness.
+                long_line.incomplete = True
             items, result.inside_key, incomplete, count = long_line.finish()
             result.safe_path = long_line.safe_path
             accept_line(items, long=True, incomplete=incomplete, candidate_count=count)
             long_line = None
+            pending_prefix = None
         else:
             line = short_line
             if result.inside_key:
+                pending_prefix = None
                 if detectors.PRIVATE_END.search(line):
                     result.inside_key = False
             else:
+                prefix = (pending_prefix or "") if is_js else ""
+                generic_line = prefix + line if is_js else line
+                pending_prefix = pending_assignment_prefix(line) if is_js else None
+
+                def js_positions(found: tuple[list[SecretCandidate], int]) -> tuple[list[SecretCandidate], int]:
+                    items, suppressed = found
+                    if not prefix:
+                        return items, suppressed
+                    return ([replace(item, start=item.start - len(prefix),
+                                     end=item.end - len(prefix))
+                             for item in items if item.start >= len(prefix)], suppressed)
+
                 private, result.inside_key = detectors.private_key(line)
                 groups = [private]
                 for detector in (detectors.provider, detectors.connection_string, detectors.jwt,
-                                 *((lambda text: detectors.assignment(text, test_context=is_test),)
+                                 *((lambda text: js_positions(detectors.assignment(
+                                     generic_line, test_context=is_test,
+                                     js_literal_only=is_js)),)
                                    if limits.enable_generic_assignment else ()),
-                                 *((detectors.entropy_context,) if limits.enable_entropy else ())):
+                                 *((lambda text: js_positions(detectors.entropy_context(
+                                     generic_line, js_literal_only=is_js,
+                                     test_context=is_test)),)
+                                   if limits.enable_entropy else ())):
                     found, suppressed = detector(line)
                     groups.append(found)
                     result.placeholders += suppressed
@@ -266,6 +300,7 @@ def scan_large_artifact(root: Path, artifact: FileArtifact, limits: SecretLimits
                 enable_assignment=limits.enable_generic_assignment,
                 enable_entropy=limits.enable_entropy,
                 test_context=is_test,
+                js_literal_only=is_js,
             )
             long_line.feed(short_line)
             long_line.feed(piece)
