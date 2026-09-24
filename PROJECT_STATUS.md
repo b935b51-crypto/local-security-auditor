@@ -1,8 +1,8 @@
 # Project Status
 
 - Last updated: 2026-09-24 (Asia/Taipei)
-- Current milestone: v1 Release Candidate baseline `0.9.0` after completed Phases 0–9; Phase 10 has not started
-- Status: The `0.9.0` RC wheel/sdist are **REFRESHED AND VERIFIED AFTER HARDENING #8**. A read-only v1 readiness assessment of checkpoint `ed8d21d` concluded **READY FOR 1.0.0 FINALIZATION**, with no identified blocker under the documented Phase 0–9 scope. This is not a version bump or release. See [v1 Finalization Assessment](docs/V1_FINALIZATION_ASSESSMENT.md), [Release Candidate](docs/RELEASE_CANDIDATE.md), and [RC validation](docs/RC_REAL_WORLD_VALIDATION.md).
+- Current milestone: Local Security Auditor `1.0.0` finalization; Phases 0–9 complete and Phase 10 not started
+- Status: **READY TO TAG** after the verified local finalization. The ignored 1.0.0 wheel/sdist were built from the version-bumped source and clean-installed on Python 3.12.11; no tag, push, GitHub Release, or package publication has occurred. The prior [v1 Finalization Assessment](docs/V1_FINALIZATION_ASSESSMENT.md), [Release Candidate](docs/RELEASE_CANDIDATE.md), and [RC validation](docs/RC_REAL_WORLD_VALIDATION.md) remain historical evidence.
 
 ## Implemented
 
@@ -23,6 +23,8 @@
 - Release hardening #5 identifies a first-party root only from matching admitted root `pyproject.toml` project identity and a single root `uv.lock` `editable="."` entry. Same-name registry, absent/conflicting evidence, outside-root editable, and other local path entries remain distinct and conservatively covered. The root stays in inventory but does not count unresolved or reach OSV. JSON 1.1 additively reports first-party and unresolved-third-party counts; zh-TW HTML displays them. Secret per-file diagnostics now attach the existing redacted relative path where safely attributable. The Secret 1 MiB default and hard ceiling, default scan scope, and Gate policy are unchanged.
 
 ## Verification
+
+- v1 finalization (2026-09-24): `pyproject.toml` is the sole version source and now reads 1.0.0. `uv run --offline --no-sync python -m unittest discover -s tests -q` on Python 3.12.11 ran **193 tests: 187 passed, 0 failed, 6 skipped**. `uv build --offline` produced `local_security_auditor-1.0.0-py3-none-any.whl` (179,289 bytes; SHA-256 `c482501e48656c0e6e7528a99a94052b15e86fc5e200b2c34065fafc3822bb1c`) and `local_security_auditor-1.0.0.tar.gz` (130,811 bytes; SHA-256 `fc8ee38e26e379fa06132ff62a799e5adb03004f219697eea0dd5272f7d6fe19`). Archive checks found required modules/metadata and no forbidden names or private project path markers. Separate offline Python 3.12 core wheel, Gemini-extra (`google-genai==2.25.0`), and sdist installs passed. The installed wheel produced JSON 1.1, zh-TW HTML with CSP, SARIF 2.1.0, Gate PASS/WARN/BLOCK, and a Tk 8.6 main window. Synthetic installed-wheel checks passed Hardening #4–#8 using fake OSV transport; source and wheel stable report fields matched. The final 1.0.0 wheel's Trading Platform `--offline --no-ai` scan returned all deterministic coverage COMPLETE, Gate WARN, 3 medium/14 info Findings, 341 cache hits, zero provider requests, and unchanged target Git status. No target code was executed or modified.
 
 - v1 Finalization Assessment (2026-09-24): Cross-checked roadmap, contracts, implementation modules, tests, current wheel/sdist hashes and clean-install records, Windows/live-provider history, and Mosaic/Trading Platform evidence. The existing Mosaic JSON report was evaluated read-only with Gate 1.0 and returned COMPLETE/PASS with no findings; the prior fresh-wheel Trading Platform result remains COMPLETE/WARN with 17 findings and zero offline provider requests. The six recorded suite skips classify as four explicit live gates and two host-limited real-symlink cases. No source suite, build, target scan, live service or release action was rerun. See [assessment](docs/V1_FINALIZATION_ASSESSMENT.md).
 
@@ -63,7 +65,7 @@
 
 ## Git and next action
 
-- The 0.9.0 wheel/sdist are **refreshed and verified after Hardening #8**. The assessment decision is **READY FOR 1.0.0 FINALIZATION**; the next recommended work, only with separate authorization, is version bump, final regression/build/checksums, release notes, and tag preparation. No release action or Phase 10 work has started.
+- The ignored local 1.0.0 wheel/sdist are **built and verified**. Release notes and changelog are prepared. The next release action is an annotated `v1.0.0` tag only after explicit user authorization; no tag, push, package upload, or Phase 10 work has started.
 
-- Branch `main`; local checkpoints only, no push or release tag. The pre-existing untracked `uv.lock` and Mosaic reports remain outside Git; ignored `dist/` contains local RC build artifacts. Verify the latest checkpoint and working tree with `git log -1` and `git status`.
-- Core roadmap phases 0–9 are implementation milestones. The current 0.9.0 wheel/sdist include Hardening #8 and passed clean installation plus synthetic/real-world offline checks. The bounded full-project OSV query was previously completed and replayed from cache without network in this validation. Optional future Phase 10 — Controlled Patch Application — has not started.
+- Branch `main`; local checkpoints only, no push or release tag. The pre-existing untracked `uv.lock` and audit reports remain outside Git; ignored `dist/` contains the local 1.0.0 archives. Verify the latest checkpoint and working tree with `git log -1` and `git status`.
+- Core roadmap phases 0–9 are implementation milestones. The 1.0.0 archives include Hardening #8 and passed clean installation plus synthetic/real-world offline checks. Optional future Phase 10 — Controlled Patch Application — has not started.

@@ -1,5 +1,7 @@
 # Roadmap
 
+Version `1.0.0` is locally finalized and ready for an annotated tag. Phases 0–9 define its implemented scope. The final wheel and sdist passed clean Python 3.12 installation and offline validation; no tag, push, or publication has occurred. Phase 10 remains future work.
+
 | Phase | Scope | Exit evidence |
 | --- | --- | --- |
 | 0 | Architecture, threat model, foundation | contracts/docs, basic tests, local Git checkpoint; no scanner |

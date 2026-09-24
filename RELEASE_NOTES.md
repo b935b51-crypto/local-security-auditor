@@ -1,0 +1,47 @@
+# Local Security Auditor 1.0.0
+
+**Local final build: ready to tag.** No Git tag, push, GitHub Release, or package-registry publication has been performed.
+
+## Highlights
+
+Local Security Auditor is an offline-first static auditor for untrusted local repositories. It combines bounded file discovery, Secret scanning (including bounded large-text analysis), Python SAST, dangerous behavior signals, supported dependency inventory and vulnerability matching, correlation and risk prioritization. Optional OSV queries and Gemini advisory review are separately enabled. Results are available through the CLI, Windows Tk GUI, Security Gate, and Console, JSON 1.1, SARIF 2.1.0, and Traditional Chinese HTML reports.
+
+## Security model
+
+The selected target is untrusted data. The auditor does not execute target code, import target modules, run target tests, install target dependencies, or automatically modify target files. Symlink, junction, and reparse traversal is denied by default. File, parser, finding, output, and provider request budgets limit work. `COMPLETE` means finished analysis within the declared scan scope; `PARTIAL`, `ABORTED`, and `FAILED` are explicit, and incomplete coverage blocks the default Gate. Zero findings never proves a project safe.
+
+## Scanners and external services
+
+Secrets are redacted before public Findings; Python SAST requires a defensible source-to-sink path; behavior signals do not by themselves establish intent or exploitability. Dependency analysis parses admitted manifests and lockfiles without running a package manager. Optional OSV queries send only validated exact package coordinates to the fixed HTTPS endpoint, with scan-global request limits and a normalized tool-local cache. A known vulnerable dependency version does not establish that its affected function is reachable or the application exploitable. Optional Gemini reviews are advisory, receive bounded redacted context after explicit opt-in, and cannot change deterministic Findings, severity, or the Gate decision.
+
+## Reporting, GUI, Gate, and remediation
+
+JSON 1.1 is the canonical machine contract. SARIF 2.1.0 contains deterministic results; static zh-TW HTML has escaping, CSP, no JavaScript, and no remote assets. The Windows Tk GUI reads the same sanitized report view as the CLI. Gate 1.0 returns PASS, WARN, or BLOCK based on coverage and primary deterministic Findings. Remediation is **proposal-only**: every patch requires human approval; no patch is applied automatically and runtime tests remain `NOT_RUN`.
+
+## Real-world validation
+
+Mosaic's final recorded offline scan had COMPLETE coverage and zero Findings in the analyzed scope; its saved report gated PASS. The final installed **1.0.0** wheel scanned the Trading Platform offline with COMPLETE Discovery, Secrets, SAST, Behavior, Dependencies, Correlation, and Overall coverage, and Gate WARN (3 medium and 14 info Findings). Its 2,169,199-byte log was analyzed in bounded large-text mode, and dependency replay had 341 cache hits with zero OSV requests. Target Git status was unchanged before and after. These are observed snapshots, not guarantees about either project. Historical live Gemini and bounded live OSV validation, Windows junction/long-path checks, and 1.0.0 clean-install evidence are documented in [Release Candidate](docs/RELEASE_CANDIDATE.md), [RC real-world validation](docs/RC_REAL_WORLD_VALIDATION.md), and [project status](PROJECT_STATUS.md).
+
+## Installation
+
+Requires Python `>=3.12,<3.13`. From the locally built artifact in a new environment:
+
+```powershell
+python -m pip install .\dist\local_security_auditor-1.0.0-py3-none-any.whl
+security-auditor --version
+security-auditor scan PATH --offline --format json --output report.json
+security-auditor gate report.json --format json
+```
+
+Alternatively use `uv pip install --python <venv-python> <wheel-path>`. Install `<wheel-path>[gemini]` only when the optional Gemini adapter is needed. The GUI requires a Python installation with Tk support. The package has **not** been published to PyPI; install from the local wheel or sdist. See [CLI](docs/CLI.md) for output and exit-code details.
+
+## Known limitations
+
+- Deep SAST is Python-focused; dependency formats and ecosystems are limited to documented support.
+- Secret redaction is heuristic. Discovery admits files up to 4 MiB by default; larger applicable files can leave coverage incomplete.
+- Real symlink and UNC cases were not validated on this Windows host. High-DPI and assistive-technology GUI behavior were not fully verified.
+- No standalone EXE or installer is built. Remediation runtime tests are `NOT_RUN`; controlled patch application is not part of 1.0.0.
+
+## Upgrade notes
+
+The package version changes from `0.9.0` RC to `1.0.0`. JSON remains schema `1.1`, SARIF remains `2.1.0`, and Gate policy remains `1.0`; no scanner rule, Secret limit, Discovery ceiling, or OSV budget was changed for this version transition. Existing reports should be interpreted with their embedded tool and schema versions, and Gate accepts only canonical JSON 1.1. Reinstall from the 1.0.0 artifact in a clean Python 3.12 environment to verify your workflow before replacing a prior installation.

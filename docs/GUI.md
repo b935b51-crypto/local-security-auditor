@@ -15,7 +15,7 @@ The v1 interface uses a deliberate light, information-dense palette: deep blue n
 
 ## Start and workflow
 
-From an installed package: `security-auditor gui`. From this checkout under the uv-managed Python 3.12.11 environment: `uv run security-auditor gui`. GUI automation tests passed under Python 3.12.11; the installed 0.9.0 wheel also opened a visible Tk main window on this host. GUI availability still depends on Tk support in the selected Python installation.
+From an installed package: `security-auditor gui`. From this checkout under the uv-managed Python 3.12.11 environment: `uv run security-auditor gui`. GUI automation tests passed under Python 3.12.11; the installed 1.0.0 wheel also opened a Tk main window on this host. GUI availability still depends on Tk support in the selected Python installation.
 
 Choose **Scan folder**, then profile and per-scan options. Offline is selected by default. OSV live lookup and Gemini review are separate online check boxes; Gemini remediation requires another separate check box plus proposals. Choosing Gemini alone does not silently enable OSV. No setting, API key, source path, report, or scan history is persisted by the GUI. The GUI never reads or displays a key; its default controller can use a trusted process `GEMINI_API_KEY` if the existing provider is explicitly enabled. It does not load a target `.env` or expose a trusted config-directory picker. **Open report** reads only bounded canonical JSON 1.1, validates it, and never re-scans or contacts providers.
 
