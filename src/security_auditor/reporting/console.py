@@ -65,6 +65,10 @@ def render(report: ScanReport, *, top: int = 20, verbose: bool = False) -> str:
     lines.append(f"OSV requests: {dep['batch_requests_used']} batch / {dep['detail_requests_used']} detail "
                  f"(total {dep['total_requests_used']}/{dep['total_requests_limit']}); "
                  f"budget {'reached' if dep['provider_budget_reached'] else 'not reached'}")
+    if dep["advisory_limit_reached"]:
+        lines.append(f"OSV advisory limit reached: {dep['advisories_seen']} references received / "
+                     f"{dep['advisories_accepted']} accepted; {dep['advisories_truncated']} "
+                     "not analyzed (coverage PARTIAL)")
     if view["scan"]["remediation_requested"]:
         remediation = view["summary"]["remediation"]
         lines.extend(["", "Remediation proposals (never applied)",

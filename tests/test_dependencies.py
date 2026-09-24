@@ -442,18 +442,137 @@ class DependencyTests(unittest.TestCase):
                 self.assertIn("stage=batch", bad.message)
                 self.assertIn("reason=" + reason, bad.message)
                 self.assertNotIn("idna", bad.message)
+        def wrong_detail(method, url, body, limits):
+            if method == "POST":
+                return {"results": [{"vulns": [{"id": "GHSA-good"}]}]}
+            return {"id": "GHSA-wrong"}
+        mismatch = self.outcome(offline=False, provider=OSVProvider(wrong_detail))
+        bad = next(d for d in mismatch.result.diagnostics if d.code == "VULN_PROVIDER_BAD_RESPONSE")
+        self.assertIn("stage=detail; reason=DETAIL_ID_MISMATCH", bad.message)
 
-    def test_oversized_advisory_list_is_identified_as_batch_limit(self):
+    def test_advisory_count_limit_preserves_bounded_partial_results(self):
         self.write("requirements.txt", "idna==3.5\n")
+        for count in (100, 101, 106):
+            with self.subTest(count=count):
+                self.cache = VulnerabilityCache(self.base / f"cache-advisory-{count}")
+                calls = []
+                def transport(method, url, body, limits):
+                    calls.append(method)
+                    if method == "POST":
+                        return {"results": [{"vulns": [{"id": f"GHSA-{i}"} for i in range(count)]}]}
+                    return {"id": url.rsplit("/", 1)[-1], "affected": [
+                        {"package": {"ecosystem": "PyPI", "name": "idna"}}]}
+                detail_cap = 100 if count == 100 else 3
+                limits = replace(VulnerabilityLimits(), max_total_detail_requests=detail_cap,
+                                 max_total_provider_requests=detail_cap + 1)
+                outcome = self.outcome(offline=False, provider=OSVProvider(transport), vulnerability=limits)
+                stats = dict(outcome.result.summary.details)
+                codes = {d.code for d in outcome.result.diagnostics}
+                self.assertNotIn("VULN_PROVIDER_BAD_RESPONSE", codes)
+                self.assertEqual((stats["advisories_seen"], stats["advisories_accepted"],
+                                  stats["advisories_truncated"]), (count, 100, count - 100))
+                self.assertEqual(stats["advisory_limit"], 100)
+                self.assertEqual(stats["advisory_limit_reached"], int(count > 100))
+                self.assertEqual((calls.count("POST"), calls.count("GET")), (1, detail_cap))
+                self.assertEqual(len(outcome.result.findings), detail_cap)
+                self.assertEqual(outcome.result.status, "partial" if count > 100 else "completed")
+                self.assertEqual("DEPENDENCY_OSV_ADVISORY_LIMIT_REACHED" in codes, count > 100)
+                self.assertEqual("DEPENDENCY_OSV_DETAIL_BUDGET_REACHED" in codes, count > 100)
+                self.assertEqual(outcome.lookups[0].incomplete, count > 100)
+                self.assertEqual(self.cache._path(("PyPI", "idna", "3.5")).exists(), count == 100)
+                if count > 100:
+                    offline = self.outcome(vulnerability=limits)
+                    self.assertEqual(offline.lookups[0].status, LookupStatus.OFFLINE_NO_CACHE)
+
+    def test_advisory_stable_dedup_and_malformed_tail(self):
+        self.write("requirements.txt", "idna==3.5\n")
+        raw_ids = [f"GHSA-{i}" for i in range(86)] + [f"GHSA-{i}" for i in range(20)]
         calls = []
         def transport(method, url, body, limits):
             calls.append(method)
-            return {"results": [{"vulns": [{"id": f"GHSA-{i}"} for i in range(101)]}]}
-        outcome = self.outcome(offline=False, provider=OSVProvider(transport))
-        self.assertEqual(calls, ["POST"])
-        bad = next(d for d in outcome.result.diagnostics if d.code == "VULN_PROVIDER_BAD_RESPONSE")
-        self.assertIn("stage=batch; reason=VULNS_LIMIT_EXCEEDED", bad.message)
-        self.assertFalse(outcome.result.findings)
+            if method == "POST":
+                return {"results": [{"vulns": [{"id": item} for item in raw_ids]}]}
+            return {"id": url.rsplit("/", 1)[-1], "affected": [
+                {"package": {"ecosystem": "PyPI", "name": "idna"}}]}
+        limits = replace(VulnerabilityLimits(), max_total_detail_requests=86,
+                         max_total_provider_requests=87)
+        outcome = self.outcome(offline=False, provider=OSVProvider(transport), vulnerability=limits)
+        stats = dict(outcome.result.summary.details)
+        self.assertEqual((stats["advisories_seen"], stats["advisories_accepted"],
+                          stats["advisories_truncated"]), (86, 86, 0))
+        self.assertEqual(len(outcome.result.findings), 86)
+        self.assertEqual(calls.count("GET"), 86)
+        self.assertEqual(outcome.result.status, "completed")
+        malformed = {"results": [{"vulns": [{"id": f"GHSA-{i}"} for i in range(100)] + [{}]}]}
+        bad = self.outcome(offline=False, provider=OSVProvider(lambda *args: malformed),
+                           vulnerability=replace(limits, cache_enabled=False))
+        self.assertIn("VULN_PROVIDER_BAD_RESPONSE", {d.code for d in bad.result.diagnostics})
+
+    def test_truncated_without_fetched_match_is_no_data(self):
+        self.write("requirements.txt", "idna==3.5\n")
+        def transport(method, url, body, limits):
+            if method == "POST":
+                return {"results": [{"vulns": [{"id": f"GHSA-{i}"} for i in range(106)]}]}
+            raise AssertionError("detail request should be denied by budget")
+        limits = replace(VulnerabilityLimits(), max_total_provider_requests=1)
+        outcome = self.outcome(offline=False, provider=OSVProvider(transport), vulnerability=limits)
+        self.assertEqual(outcome.lookups[0].status, LookupStatus.NO_DATA)
+        self.assertTrue(outcome.lookups[0].incomplete)
+        self.assertEqual(dict(outcome.result.summary.details)["total_requests_used"], 1)
+        self.assertEqual(outcome.result.status, "partial")
+
+    def test_overflow_total_budget_and_later_timeout_keep_findings(self):
+        self.write("requirements.txt", "idna==3.5\n")
+        for timeout in (False, True):
+            with self.subTest(timeout=timeout):
+                self.cache = VulnerabilityCache(self.base / f"cache-overflow-{timeout}")
+                calls = []
+                def transport(method, url, body, limits):
+                    calls.append(method)
+                    if method == "POST":
+                        return {"results": [{"vulns": [{"id": f"GHSA-{i}"} for i in range(106)]}]}
+                    if timeout and calls.count("GET") == 2:
+                        raise ProviderError("VULN_PROVIDER_TIMEOUT")
+                    return {"id": url.rsplit("/", 1)[-1], "affected": [
+                        {"package": {"ecosystem": "PyPI", "name": "idna"}}]}
+                limits = replace(VulnerabilityLimits(), max_total_provider_requests=2 if not timeout else 4)
+                outcome = self.outcome(offline=False, provider=OSVProvider(transport), vulnerability=limits)
+                codes = {d.code for d in outcome.result.diagnostics}
+                self.assertEqual(len(outcome.result.findings), 1)
+                self.assertEqual(outcome.result.status, "partial")
+                self.assertIn("DEPENDENCY_OSV_ADVISORY_LIMIT_REACHED", codes)
+                self.assertIn("VULN_PROVIDER_TIMEOUT" if timeout else
+                              "DEPENDENCY_OSV_TOTAL_REQUEST_BUDGET_REACHED", codes)
+                self.assertNotIn("VULN_PROVIDER_BAD_RESPONSE", codes)
+                self.assertLessEqual(dict(outcome.result.summary.details)["total_requests_used"],
+                                     limits.max_total_provider_requests)
+                self.assertFalse(self.cache._path(("PyPI", "idna", "3.5")).exists())
+
+    def test_batch_global_advisory_cap_preserves_other_results_and_dedup(self):
+        self.write("requirements.txt", "alpha==1.0\nbeta==1.0\ngamma==1.0\n")
+        calls = []
+        def transport(method, url, body, limits):
+            calls.append(method)
+            if method == "POST":
+                return {"results": [
+                    {"vulns": [{"id": "GHSA-shared"}]},
+                    {"vulns": [{"id": f"GHSA-{i}"} for i in range(106)]},
+                    {"vulns": [{"id": "GHSA-shared"}]},
+                ]}
+            return {"id": url.rsplit("/", 1)[-1], "affected": [
+                {"package": {"ecosystem": "PyPI", "name": name}}
+                for name in ("alpha", "beta", "gamma")]}
+        limits = replace(VulnerabilityLimits(), max_batch_size=3, max_total_detail_requests=100,
+                         max_total_provider_requests=101)
+        outcome = self.outcome(offline=False, provider=OSVProvider(transport), vulnerability=limits)
+        self.assertEqual(calls.count("GET"), 100)
+        self.assertEqual(len(outcome.result.findings), 101)
+        self.assertEqual([x.status for x in outcome.lookups],
+                         [LookupStatus.MATCHED, LookupStatus.MATCHED, LookupStatus.MATCHED])
+        self.assertEqual([x.incomplete for x in outcome.lookups], [False, True, False])
+        self.assertIn("DEPENDENCY_OSV_ADVISORY_LIMIT_REACHED", {d.code for d in outcome.result.diagnostics})
+        self.assertNotIn("VULN_PROVIDER_BAD_RESPONSE", {d.code for d in outcome.result.diagnostics})
+        self.assertEqual(dict(outcome.result.summary.details)["advisories_truncated"], 7)
 
     def test_transport_observer_records_shape_without_values(self):
         raw = b'{"results":[],"raw_secret":"FAKE_SECRET_VALUE"}'
@@ -475,6 +594,11 @@ class DependencyTests(unittest.TestCase):
         self.assertEqual(shapes[0]["top_level_keys"], ("results",))
         self.assertEqual(shapes[0]["other_key_count"], 1)
         self.assertNotIn("FAKE_SECRET_VALUE", repr(shapes))
+        raw = b"{"
+        with patch("security_auditor.scanners.dependencies.providers.build_opener", return_value=Opener()):
+            with self.assertRaises(ProviderError) as error:
+                _transport("POST", OSV_BASE + "/querybatch", b"{}", VulnerabilityLimits(), shapes.append)
+        self.assertEqual((error.exception.stage, error.exception.reason), ("batch", "JSON_DECODE_FAILED"))
 
     def test_unrecognized_provider_reason_is_not_published(self):
         self.write("requirements.txt", "idna==3.5\n")

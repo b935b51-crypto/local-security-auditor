@@ -90,6 +90,11 @@ class DependencySummary:
     total_requests_limit: int = 0
     deduplicated_advisories: int = 0
     provider_budget_reached: bool = False
+    advisories_seen: int = 0
+    advisories_accepted: int = 0
+    advisories_truncated: int = 0
+    advisory_limit: int = 0
+    advisory_limit_reached: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -254,7 +259,12 @@ def assemble_report(session: ScanSession, discovery: DiscoveryResult,
                                     metrics.get("total_requests_used", 0),
                                     metrics.get("total_requests_limit", 0),
                                     metrics.get("deduplicated_advisories", 0),
-                                    bool(metrics.get("provider_budget_reached", 0)))
+                                    bool(metrics.get("provider_budget_reached", 0)),
+                                    metrics.get("advisories_seen", 0),
+                                    metrics.get("advisories_accepted", 0),
+                                    metrics.get("advisories_truncated", 0),
+                                    metrics.get("advisory_limit", 0),
+                                    bool(metrics.get("advisory_limit_reached", 0)))
     return ScanReport(SCHEMA_VERSION, "Local Security Auditor", __version__, session.id,
                       started_at, completed_at, max(0.0, duration_seconds),
                       session.target.display_name, session.profile.value, session.offline,

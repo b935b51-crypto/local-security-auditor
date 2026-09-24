@@ -220,6 +220,37 @@ class ReportTests(unittest.TestCase):
         self.assertIn("OSV 查詢已達本次掃描的安全請求上限", rendered)
         self.assertIn("OSV requests: 1 batch / 0 detail", console.render(report))
 
+    def test_osv_advisory_overflow_is_public_partial_and_blocks_gate(self):
+        isolated = self.root.parent / "advisory-overflow-target"
+        isolated.mkdir()
+        (isolated / "requirements.txt").write_text("idna==3.5\n", encoding="utf-8")
+        calls = []
+        def transport(method, url, body, limits):
+            calls.append(method)
+            if method == "POST":
+                return {"results": [{"vulns": [{"id": f"GHSA-{i}"} for i in range(106)]}]}
+            return {"id": url.rsplit("/", 1)[-1], "affected": [
+                {"package": {"ecosystem": "PyPI", "name": "idna"}}]}
+        limits = replace(VulnerabilityLimits(cache_enabled=False), max_total_detail_requests=3,
+                         max_total_provider_requests=4)
+        report = ScanOrchestrator(dependency_provider=OSVProvider(transport)).run_scan(
+            ScanRequest(isolated, replace(AuditConfig(), vulnerability=limits),
+                        ScanProfile.STANDARD, False, False))
+        view = json.loads(json_report.render(report))
+        dep = view["summary"]["dependency"]
+        self.assertEqual(calls, ["POST", "GET", "GET", "GET"])
+        self.assertEqual((dep["advisories_seen"], dep["advisories_accepted"],
+                          dep["advisories_truncated"], dep["advisory_limit"]), (106, 100, 6, 100))
+        self.assertTrue(dep["advisory_limit_reached"])
+        self.assertEqual(view["coverage"]["overall"], "PARTIAL")
+        self.assertEqual(len(view["findings"]), 3)
+        self.assertEqual(evaluate_gate(view).status, GateStatus.BLOCK)
+        self.assertIn("DEPENDENCY_ADVISORY_LIMIT_REACHED", evaluate_gate(view).reasons)
+        self.assertIn("OSV 回傳的漏洞公告參照數量超過", html.render(report))
+        self.assertIn("公告參照數：106", html.render(report))
+        self.assertIn("OSV advisory limit reached: 106 references received / 100 accepted", console.render(report))
+        self.assertNotIn("VULN_PROVIDER_BAD_RESPONSE", {d["code"] for d in view["diagnostics"]})
+
     def test_oversize_secret_shaped_filename_is_redacted_in_public_reports(self):
         fake_token = "ghp_" + ("A1b2C3d4" * 5)[:36]
         (self.root / f"0-{fake_token}.log").write_bytes(b"SYNTHETIC DATA\n" * 75000)

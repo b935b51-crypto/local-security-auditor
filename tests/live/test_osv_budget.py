@@ -40,6 +40,7 @@ class BoundedLiveOSVTest(unittest.TestCase):
             (target / "requirements.txt").write_text("\n".join(coordinates) + "\n", encoding="utf-8")
             cache = VulnerabilityCache(base / "tool-cache")
             calls = []
+            shapes = []
 
             def guarded_transport(method, url, body, request_limits):
                 self.assertTrue(url.startswith(OSV_BASE + "/"))
@@ -56,7 +57,13 @@ class BoundedLiveOSVTest(unittest.TestCase):
                     self.assertEqual(method, "GET")
                     self.assertIsNone(body)
                 calls.append(method)
-                return _transport(method, url, body, request_limits)
+                value, size = _transport(method, url, body, request_limits, observer=shapes.append)
+                if method == "POST" and isinstance(value.get("results"), list):
+                    shapes[-1]["results_count"] = len(value["results"])
+                    shapes[-1]["max_advisories_in_result"] = max(
+                        (len(item["vulns"]) for item in value["results"]
+                         if isinstance(item, dict) and isinstance(item.get("vulns"), list)), default=0)
+                return value, size
 
             discovery = discover(ScanTarget(target, "synthetic"), DiscoveryPolicy())
             online_session = ScanSession("synthetic-online", ScanTarget(target, "synthetic"),
@@ -65,6 +72,16 @@ class BoundedLiveOSVTest(unittest.TestCase):
                                        provider=OSVProvider(guarded_transport), cache=cache).scan_with_inventory(
                                            online_session, discovery)
             stats = dict(online.result.summary.details)
+            diagnostic_codes = tuple(d.code for d in online.result.diagnostics)
+            print("LIVE_OSV_OVERFLOW_RESULT " + json.dumps({
+                "keys": len(coordinates), "batch": calls.count("POST"), "detail": calls.count("GET"),
+                "total": len(calls), "findings": len(online.result.findings),
+                "status": online.result.status, "diagnostics": diagnostic_codes,
+                "advisories_seen": stats["advisories_seen"],
+                "advisories_accepted": stats["advisories_accepted"],
+                "advisories_truncated": stats["advisories_truncated"],
+                "advisory_limit": stats["advisory_limit"], "shapes": shapes,
+            }, sort_keys=True), flush=True)
             self.assertEqual(stats["unique_package_versions"], 10)
             self.assertEqual(stats["batch_requests_used"], calls.count("POST"))
             self.assertEqual(stats["detail_requests_used"], calls.count("GET"))
@@ -75,10 +92,16 @@ class BoundedLiveOSVTest(unittest.TestCase):
             self.assertTrue(online.result.findings,
                             (tuple(d.code for d in online.result.diagnostics),
                              calls.count("POST"), calls.count("GET")))
-            self.assertTrue(stats["provider_budget_reached"])
+            self.assertNotIn("VULN_PROVIDER_BAD_RESPONSE", diagnostic_codes)
             self.assertEqual(online.result.status, "partial")
             self.assertTrue(any(x.incomplete for x in online.lookups))
             self.assertFalse(any(x.status.value == "no_match" and x.incomplete for x in online.lookups))
+            if shapes and shapes[0].get("max_advisories_in_result", 0) > limits.max_advisories:
+                self.assertIn("DEPENDENCY_OSV_ADVISORY_LIMIT_REACHED", diagnostic_codes)
+                self.assertTrue(stats["advisory_limit_reached"])
+            for lookup in online.lookups:
+                if lookup.incomplete:
+                    self.assertFalse(cache._path(lookup.key).exists())
 
             offline_calls = []
             def forbidden_transport(*args):
@@ -91,11 +114,7 @@ class BoundedLiveOSVTest(unittest.TestCase):
                                            offline_session, discovery)
             self.assertEqual(offline_calls, [])
             self.assertEqual(dict(replay.result.summary.details)["total_requests_used"], 0)
-            self.assertGreaterEqual(dict(replay.result.summary.details)["cache_hits"], 1)
-            print("LIVE_OSV_BUDGET_RESULT "
-                  f"packages={len(coordinates)} keys={stats['unique_package_versions']} "
-                  f"batch={calls.count('POST')} detail={calls.count('GET')} total={len(calls)} "
-                  f"matches={len(online.result.findings)} cache_hits={dict(replay.result.summary.details)['cache_hits']} "
-                  f"deduplicated={stats['deduplicated_advisories']} budget_reached=1 "
-                  f"ids={','.join(sorted({f.vulnerability.advisory_id for f in online.result.findings}))} "
-                  "offline_requests=0")
+            print("LIVE_OSV_OFFLINE_REPLAY " + json.dumps({
+                "requests": len(offline_calls),
+                "cache_hits": dict(replay.result.summary.details)["cache_hits"],
+            }, sort_keys=True), flush=True)

@@ -48,6 +48,10 @@ class ProviderScanState:
     detail_requests: int = 0
     deduplicated_advisories: int = 0
     budget_code: str | None = None
+    advisories_seen: int = 0
+    advisories_accepted: int = 0
+    advisories_truncated: int = 0
+    detail_error_code: str | None = None
     details: dict[str, dict] = field(default_factory=dict)
 
     @property
@@ -292,7 +296,9 @@ class OSVProvider:
         if len(results) != len(keys):
             raise ProviderError("VULN_PROVIDER_BAD_RESPONSE", stage="batch", reason="RESULT_COUNT_MISMATCH")
         ids_by_key = []
+        truncated_by_key = []
         unique_ids = set()
+        batch_seen = batch_accepted = batch_truncated = 0
         for entry in results:
             if not isinstance(entry, dict):
                 raise ProviderError("VULN_PROVIDER_BAD_RESPONSE", stage="batch", reason="RESULT_NOT_OBJECT")
@@ -301,18 +307,30 @@ class OSVProvider:
             vulns = entry.get("vulns", [])
             if not isinstance(vulns, list):
                 raise ProviderError("VULN_PROVIDER_BAD_RESPONSE", stage="batch", reason="VULNS_NOT_LIST")
-            if len(vulns) > limits.max_advisories:
-                raise ProviderError("VULN_PROVIDER_BAD_RESPONSE", stage="batch", reason="VULNS_LIMIT_EXCEEDED")
+            # Validate the complete byte-bounded list before truncating; malformed
+            # entries beyond the cap must not be disguised as safe overflow.
             ids = []
             for vuln in vulns:
                 identifier = vuln.get("id") if isinstance(vuln, dict) else None
                 if not isinstance(identifier, str) or not _ID.fullmatch(identifier):
                     raise ProviderError("VULN_PROVIDER_BAD_RESPONSE", stage="batch", reason="VULN_ID_MISSING_OR_INVALID")
                 ids.append(identifier)
+            ordered = tuple(dict.fromkeys(ids))
+            selected = []
+            for identifier in ordered:
+                if (len(selected) >= limits.max_advisories or
+                        identifier not in unique_ids and len(unique_ids) >= limits.max_advisories):
+                    continue
+                selected.append(identifier)
                 unique_ids.add(identifier)
-            ids_by_key.append(tuple(dict.fromkeys(ids)))
-        if len(unique_ids) > limits.max_advisories:
-            raise ProviderError("DEPENDENCY_QUERY_LIMIT_REACHED")
+            batch_seen += len(ordered)
+            batch_accepted += len(selected)
+            batch_truncated += len(ordered) - len(selected)
+            ids_by_key.append(tuple(selected))
+            truncated_by_key.append(len(selected) != len(ordered))
+        state.advisories_seen += batch_seen
+        state.advisories_accepted += batch_accepted
+        state.advisories_truncated += batch_truncated
         details = {}
         detail_budget_exhausted = False
         for identifier in sorted(unique_ids):
@@ -327,13 +345,19 @@ class OSVProvider:
             except ProviderBudgetReached:
                 detail_budget_exhausted = True
                 continue
+            except ProviderError as error:
+                if str(error) != "VULN_PROVIDER_TIMEOUT":
+                    raise
+                state.detail_error_code = "VULN_PROVIDER_TIMEOUT"
+                detail_budget_exhausted = True
+                continue
             if detail.get("id") != identifier:
                 raise ProviderError("VULN_PROVIDER_BAD_RESPONSE", stage="detail", reason="DETAIL_ID_MISMATCH")
             details[identifier] = detail
             state.details[identifier] = detail
         output = []
-        for key, ids in zip(keys, ids_by_key):
-            missing = any(identifier not in details for identifier in ids)
+        for key, ids, truncated in zip(keys, ids_by_key, truncated_by_key):
+            missing = truncated or any(identifier not in details for identifier in ids)
             vulns = tuple(_normalize_advisory(details[identifier], key) for identifier in ids if identifier in details)
             active = tuple(v for v in vulns if not v.withdrawn)
             status = LookupStatus.MATCHED if active else (LookupStatus.NO_DATA if missing else LookupStatus.NO_MATCH)

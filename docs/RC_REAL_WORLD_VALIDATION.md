@@ -1,5 +1,17 @@
 # RC real-world validation: Trading Platform coverage diagnosis
 
+## Hardening #7 advisory overflow (2026-09-24)
+
+The production OSV adapter now distinguishes a malformed batch from a valid response containing more advisory references than the local processing caps. It validates all IDs within the 1 MiB response bound, stably deduplicates within each result, accepts at most 100 unique IDs per result and 100 unique IDs across one batch, and marks omitted references incomplete. The safety caps were **not raised**. A truncated package lookup is never cached as complete or returned as `NO_MATCH`; confirmed Findings survive later detail-budget exhaustion or timeout.
+
+The final default Python 3.12.11 offline suite passed 181 tests: 175 passed, 0 failed, 6 skipped. Fake responses covered 100/101/106 IDs, duplicate IDs, malformed tails, per-batch cap, detail/total budgets, timeout preservation, cache nonwrite, JSON/console/zh-TW HTML, and Gate BLOCK. Live tests remain opt-in and skipped by default.
+
+One authorized synthetic ten-coordinate flow used the official OSV HTTPS endpoint with caps of 1 batch, 3 details, and 4 total requests. The batch returned HTTP 200, `application/json`, 17,199 bytes, and 10 results; the largest result held 106 advisory references. Across the batch, 253 unique-per-result references were seen, 100 accepted under the existing per-batch cap, and 153 not processed. These are **references, not confirmed vulnerabilities**. Actual calls were **1 batch + 3 details = 4 total**. Three affected Findings were retained. Diagnostics were `DEPENDENCY_OSV_ADVISORY_LIMIT_REACHED` and `DEPENDENCY_OSV_DETAIL_BUDGET_REACHED`; there was **no** `VULN_PROVIDER_BAD_RESPONSE`. Dependency coverage was PARTIAL. One normalized complete package lookup was cached; incomplete lookups were not cached as complete. Offline replay made zero network requests and had one cache hit. Temporary synthetic target and tool-local cache were removed. No Trading Platform online query, Gemini request, raw payload log, source/path upload, wheel rebuild, or Phase 10 work occurred. The Gate's BLOCK behavior for the same truncated semantics was verified in the offline report regression, rather than by a second live scan.
+
+This establishes readiness for a separately authorized **bounded** full-project OSV validation, conditional on rechecking current package inventory and budgets. The current 0.9.0 wheel/sdist are stale relative to source changes.
+
+---
+
 ## OSV live response mismatch diagnosis (2026-09-24)
 
 The hardening #6 ten-key pilot's `VULN_PROVIDER_BAD_RESPONSE` is now localized by a new explicitly gated, staged synthetic test. It used only public PyPI names and exact versions; the official HTTPS provider received no source, path, or credentials. The test records only HTTP status, sanitized media type, byte count, JSON type, allowlisted key names, bounded result/advisory counts, and fixed validator reason codes. It never records response bodies or advisory descriptions.

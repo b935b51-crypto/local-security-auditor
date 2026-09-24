@@ -2,9 +2,11 @@
 
 - Last updated: 2026-09-24 (Asia/Taipei)
 - Current milestone: v1 Release Candidate baseline `0.9.0` after completed Phases 0–9; Phase 10 has not started
-- Status: v1 RC hardening #6 request budgets and advisory deduplication implemented in source. The ten-coordinate live OSV mismatch is diagnosed: one HTTP 200 batch result had 106 advisory IDs, exceeding the configured 100-advisory per-result guard. The guard remains in force but currently reports `BAD_RESPONSE`. See [RC real-world validation](docs/RC_REAL_WORLD_VALIDATION.md). The prior clean wheel is stale and must be rebuilt before distribution.
+- Status: v1 RC hardening #7 now treats valid OSV advisory-reference overflow as bounded PARTIAL coverage, not `BAD_RESPONSE`. Both 100-ID processing caps remain unchanged. One bounded ten-key live flow and offline replay passed; the full Trading Platform was not queried online. See [RC real-world validation](docs/RC_REAL_WORLD_VALIDATION.md). The prior clean wheel is stale and must be rebuilt before distribution.
 
 ## Implemented
+
+- Release hardening #7 preserves the 100-ID default OSV per-result and per-batch processing caps while handling valid overflow as incomplete provider coverage. Stable per-result deduplication precedes bounded selection. Truncated lookups cannot become complete `NO_MATCH` or complete cache entries; valid Findings survive later detail budget or timeout. JSON 1.1 has additive reference counts, zh-TW HTML and console explain truncation, and Gate 1.0 explicitly blocks the incomplete coverage. No full Trading Platform live query was run.
 
 - Release hardening #6 adds scan-global OSV network request caps (default 10 batch, 50 detail, 60 total), actual request accounting, and scan-local canonical advisory-ID detail reuse. Incomplete budget-limited lookups are not cached as complete or called `NO_MATCH`; already obtained Findings are retained. JSON 1.1 has additive provider counters, and console/zh-TW HTML explain budget-limited coverage. The default Gate blocks provider budget exhaustion. No full Trading Platform live query was run.
 
@@ -19,6 +21,8 @@
 - Release hardening #5 identifies a first-party root only from matching admitted root `pyproject.toml` project identity and a single root `uv.lock` `editable="."` entry. Same-name registry, absent/conflicting evidence, outside-root editable, and other local path entries remain distinct and conservatively covered. The root stays in inventory but does not count unresolved or reach OSV. JSON 1.1 additively reports first-party and unresolved-third-party counts; zh-TW HTML displays them. Secret per-file diagnostics now attach the existing redacted relative path where safely attributable. The Secret 1 MiB default and hard ceiling, default scan scope, and Gate policy are unchanged.
 
 ## Verification
+
+- Hardening #7: the single authorized ten-key OSV live flow returned HTTP 200 and ten results, including one result with 106 advisory references. Stable deduplication and the unchanged 100-ID per-result/per-batch caps accepted 100 of 253 unique-per-result references across the batch; 153 remain unanalyzed. Actual requests were 1 batch and 3 details (4 total), producing 3 retained Findings and both advisory-limit and detail-budget diagnostics, without `BAD_RESPONSE`. Dependency coverage was PARTIAL. Offline replay made zero network requests with one cache hit; incomplete lookups were not cached as complete. Synthetic offline report regression showed Gate BLOCK. The final full Python 3.12.11 suite result is recorded in the RC validation document. No Trading Platform online query, Gemini call, target execution, wheel rebuild, or Phase 10 work occurred.
 
 - OSV response diagnosis: fixed stage/reason metadata distinguishes batch, detail, normalization, and validation errors without payload logging. Offline fake responses show that valid batches exceeding the detail/total network budget preserve findings and report PARTIAL. The gated staged live run progressed through 1, 2, 5, then 10 synthetic keys and stopped at the first failure: 4 actual batch + 8 detail = 12 cumulative requests. The 1-key flow was complete with 2 Findings; 2/5-key flows retained 3 Findings each and correctly reported detail-budget PARTIAL. The 10-key batch returned valid JSON with 10 results; one result had 106 advisory IDs, triggering `stage=batch; reason=VULNS_LIMIT_EXCEEDED` before detail fetch. This is a count-limit classification problem, not detail budget exhaustion. Production limit behavior was not changed, and the Trading Platform was not queried online. Final offline suite results are recorded in the RC validation document.
 
@@ -47,7 +51,7 @@
 
 ## Git and next action
 
-- The 0.9.0 wheel/sdist are stale relative to source changes. The next narrowly scoped work is to classify oversized advisory lists as incomplete provider coverage while retaining the safety cap and any valid partial results. A full-project OSV query requires separate authorization after correction. Phase 10 has not started.
+- The 0.9.0 wheel/sdist are stale relative to source changes. The next possible work, only with separate authorization, is a bounded full-project Trading Platform OSV validation after rechecking current inventory and limits. Phase 10 has not started.
 
 - Branch `main`; local checkpoints only, no push or release tag. The pre-existing untracked `uv.lock` and Mosaic reports remain outside Git; ignored `dist/` contains local RC build artifacts. Verify the latest checkpoint and working tree with `git log -1` and `git status`.
 - Core roadmap phases 0–9 are implementation milestones. Before external RC validation, rebuild/revalidate the stale 0.9.0 wheel and sdist from the current source. Before any full-project online OSV run, diagnose the bounded pilot's provider response mismatch with metadata-only instrumentation; the request cap alone is insufficient evidence of live correctness. Optional future Phase 10 — Controlled Patch Application — has not started.

@@ -123,6 +123,11 @@ def render(report: ScanReport) -> str:
                f"{_e(dependency['total_requests_limit'])}</p>")
     if dependency['provider_budget_reached']:
         out.append(f"<p class='coverage incomplete'><strong>{_m('osv_budget_warning')}</strong></p>")
+    if dependency['advisory_limit_reached']:
+        out.append(f"<p class='coverage incomplete'><strong>{_m('osv_advisory_warning')}</strong> "
+                   f"{_m('osv_advisories_seen')}：{_e(dependency['advisories_seen'])}；"
+                   f"{_m('osv_advisories_accepted')}：{_e(dependency['advisories_accepted'])}；"
+                   f"{_m('osv_advisories_truncated')}：{_e(dependency['advisories_truncated'])}</p>")
     out.append("</section>")
     out.append(f"<section><h2>{_m('ai')}</h2><p>{_m('status')}：{_v(data['summary']['ai_status'])}；"
                f"{_m('reviewed')} {_e(coverage['ai_reviewed'])} / {_e(coverage['ai_eligible'])} "

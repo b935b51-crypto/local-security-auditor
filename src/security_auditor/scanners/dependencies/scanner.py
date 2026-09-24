@@ -38,7 +38,7 @@ _SAFE_PROVIDER_REASONS = frozenset({
     "REFERENCES_INVALID", "SEVERITY_SOURCE_INVALID", "CVSS_VECTOR_INVALID",
     "AFFECTED_INVALID", "AFFECTED_PACKAGE_MISMATCH", "RESULTS_MISSING",
     "RESULTS_NOT_LIST", "RESULT_COUNT_MISMATCH", "RESULT_NOT_OBJECT",
-    "RESULT_PAGINATED", "VULNS_NOT_LIST", "VULNS_LIMIT_EXCEEDED",
+    "RESULT_PAGINATED", "VULNS_NOT_LIST",
     "VULN_ID_MISSING_OR_INVALID", "DETAIL_ID_MISMATCH", "RESULT_KEY_MISMATCH",
 })
 _MESSAGES = {
@@ -57,6 +57,7 @@ _MESSAGES = {
     "DEPENDENCY_OSV_BATCH_BUDGET_REACHED": "OSV batch request budget reached; remaining dependencies were not queried",
     "DEPENDENCY_OSV_DETAIL_BUDGET_REACHED": "OSV advisory detail request budget reached; remaining advisories were not queried",
     "DEPENDENCY_OSV_TOTAL_REQUEST_BUDGET_REACHED": "OSV total request budget reached; remaining dependencies were not queried",
+    "DEPENDENCY_OSV_ADVISORY_LIMIT_REACHED": "OSV advisory references exceeded the local processing limit; remaining references were not analyzed",
     "DEPENDENCY_CACHE_CORRUPT": "vulnerability cache entry was invalid",
     "DEPENDENCY_CACHE_STALE": "stale vulnerability cache data was used",
     "DEPENDENCY_CACHE_READ_FAILED": "vulnerability cache could not be read",
@@ -386,6 +387,10 @@ class DependencyScanner:
                     break
             if provider_state.budget_code and provider_state.budget_code not in seen_codes:
                 note(provider_state.budget_code); limits_hit += 1
+            if provider_state.detail_error_code:
+                note(provider_state.detail_error_code)
+            if provider_state.advisories_truncated:
+                note("DEPENDENCY_OSV_ADVISORY_LIMIT_REACHED"); limits_hit += 1
         for key in keys:
             if key not in lookups:
                 lookups[key] = LookupResult(key, LookupStatus.NO_DATA)
@@ -433,6 +438,11 @@ class DependencyScanner:
             ("total_requests_limit", self.vulnerability.max_total_provider_requests),
             ("deduplicated_advisories", provider_state.deduplicated_advisories),
             ("provider_budget_reached", int(provider_state.budget_code is not None)),
+            ("advisories_seen", provider_state.advisories_seen),
+            ("advisories_accepted", provider_state.advisories_accepted),
+            ("advisories_truncated", provider_state.advisories_truncated),
+            ("advisory_limit", self.vulnerability.max_advisories),
+            ("advisory_limit_reached", int(provider_state.advisories_truncated > 0)),
         )
         summary = ScannerSummary(considered, scanned, skipped, byte_count, len(keys), len(findings),
                                  0, raw_matches - len(findings), limits_hit, state, metrics)

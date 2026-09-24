@@ -235,6 +235,18 @@ def validate_report(report: Any) -> None:
                 or dependency["detail_requests_used"] > dependency["detail_requests_limit"]
                 or dependency["total_requests_used"] > dependency["total_requests_limit"]):
             raise GateReportError()
+    advisory_keys = ("advisories_seen", "advisories_accepted", "advisories_truncated", "advisory_limit")
+    if any(key in dependency for key in advisory_keys) or "advisory_limit_reached" in dependency:
+        if not all(key in dependency for key in advisory_keys) or "advisory_limit_reached" not in dependency:
+            raise GateReportError()
+        for key in advisory_keys:
+            _count(dependency[key])
+        truncated = dependency["advisory_limit_reached"]
+        if (type(truncated) is not bool
+                or dependency["advisories_seen"] != dependency["advisories_accepted"] + dependency["advisories_truncated"]
+                or truncated != (dependency["advisories_truncated"] > 0)
+                or truncated and coverage["overall"] == "COMPLETE"):
+            raise GateReportError()
     findings = _array(root["findings"], MAX_FINDINGS)
     discovery = _object(root.get("discovery"), "admitted_files")
     _count(discovery["admitted_files"])
@@ -410,9 +422,12 @@ def evaluate_gate(report: Mapping[str, Any], policy: SecurityGatePolicy | None =
     budget_reached = report["summary"]["dependency"].get("provider_budget_reached", False)
     if budget_reached:
         reasons.add("DEPENDENCY_PROVIDER_BUDGET_REACHED")
+    advisory_limit_reached = report["summary"]["dependency"].get("advisory_limit_reached", False)
+    if advisory_limit_reached:
+        reasons.add("DEPENDENCY_ADVISORY_LIMIT_REACHED")
     if report["diagnostics"]:
         reasons.add("SCAN_DIAGNOSTICS")
-    blocked = bool(blockers or budget_reached or coverage in {"ABORTED", "FAILED"} or report["report_truncated"] or
+    blocked = bool(blockers or budget_reached or advisory_limit_reached or coverage in {"ABORTED", "FAILED"} or report["report_truncated"] or
                    coverage == "PARTIAL" and policy.partial_coverage == GateStatus.BLOCK or
                    report["summary"]["dependency"]["no_data"] and policy.dependency_no_data == GateStatus.BLOCK)
     warned = bool(warnings or report["diagnostics"] or
