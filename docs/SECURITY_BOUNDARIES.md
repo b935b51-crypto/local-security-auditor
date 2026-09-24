@@ -15,6 +15,8 @@
 
 ## Configuration and execution authority
 
+Default cache, virtual-environment, dependency-vendor, and build-output exclusions are a trusted **scan-scope boundary**, not Finding suppression. Phase 1 prunes matching directories before descending; children are neither opened nor counted as failed scanner coverage. Reports disclose bounded relative exclusion paths and totals, so `COMPLETE` always means complete within the declared scope. `.env`, tests, manifests, and lockfiles stay eligible. Only explicit trusted operator config may override defaults; target repository content cannot enlarge scope, raise ceilings, or enable reparse traversal. See [Discovery](DISCOVERY.md).
+
 Target project config and ignore files are data. They must not grant network access, enable AI, raise hard caps, select an executable, enable link traversal, or control output paths. Built-in safety caps outrank defaults, project config, and CLI options. Only explicit trusted operator choices may enable optional online or external adapters, subject to their own boundary checks. Project config may not weaken them.
 
 No `shell=True`, interpolated command strings, `eval`, `exec`, pickle deserialization, unsafe YAML loading, uncontrolled temporary files, or unbounded reads in scanner code. If a future adapter needs a subprocess, use a trusted executable path and argv list, timeout, output cap, fixed working directory outside the target, sanitized environment, and no target hooks. Do not run Semgrep/Gitleaks merely because they are present in the target.

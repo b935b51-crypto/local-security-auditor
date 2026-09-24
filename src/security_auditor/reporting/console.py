@@ -79,6 +79,9 @@ def render(report: ScanReport, *, top: int = 20, verbose: bool = False) -> str:
     for reason in coverage["reasons"][:30]:
         lines.append(f"  {reason}")
     lines.append(f"  Skipped files: {coverage['skipped_files']}; budget limits hit: {coverage['budget_limits_hit']}")
+    scope = view["discovery"]["scope"]
+    lines.append(f"  Scope exclusions: {scope['excluded_directories']} directories, "
+                 f"{scope['excluded_files']} files (intentional; not coverage failures)")
     lines.extend(["", f"Diagnostics: {len(view['diagnostics'])}"])
     if verbose:
         for diagnostic in view["diagnostics"][:50]:

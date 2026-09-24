@@ -3,6 +3,13 @@
 HTML_LOCALE = "zh-TW"
 
 MESSAGES = {
+    "scope": "掃描範圍與排除項目",
+    "excluded_directories": "排除的目錄",
+    "excluded_files": "排除的檔案",
+    "default_exclusions": "套用預設排除",
+    "scope_note": "以下項目依可信任的掃描範圍設定排除；未檢查其內容，也不計為掃描失敗。",
+    "scope_more": "其他排除項目未逐一列出",
+    "scope_complete": "已完成目前掃描範圍內的分析。",
     "title": "本機安全掃描器",
     "target": "掃描目標",
     "profile": "掃描設定檔",
@@ -154,6 +161,20 @@ DIAGNOSTICS = {
     "FILE_TOO_LARGE": "檔案超過探索大小上限。",
     "SCAN_CANCELLED": "掃描已由使用者中止。",
 }
+
+
+SCOPE_CLASSES = {
+    "CACHE": "快取目錄",
+    "ENVIRONMENT": "虛擬環境",
+    "DEPENDENCY_VENDOR": "第三方依賴目錄",
+    "BUILD_OUTPUT": "建置輸出",
+    "GENERATED": "產生式資料",
+    "UNKNOWN": "依設定排除",
+}
+
+
+def scope_label(scope_class: str) -> str:
+    return SCOPE_CLASSES.get(scope_class, SCOPE_CLASSES["UNKNOWN"])
 
 
 def message(key: str) -> str:

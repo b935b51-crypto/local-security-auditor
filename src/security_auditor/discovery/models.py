@@ -7,6 +7,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from security_auditor.core.models import FileArtifact
+from security_auditor.core.scope import ExclusionReason, ScopeClass
 
 
 class ScanCompleteness(StrEnum):
@@ -74,6 +75,14 @@ class SkippedArtifact:
 
 
 @dataclass(frozen=True, slots=True)
+class ScopeExclusion:
+    path: str
+    scope_class: ScopeClass
+    reason: ExclusionReason
+    is_directory: bool
+
+
+@dataclass(frozen=True, slots=True)
 class DiscoveryDiagnostic:
     code: DiagnosticCode
     severity: DiagnosticSeverity
@@ -93,6 +102,10 @@ class TraversalStats:
     bytes_inspected: int = 0
     files_skipped: int = 0
     directories_skipped: int = 0
+    files_excluded: int = 0
+    directories_excluded: int = 0
+    default_exclusions: int = 0
+    user_exclusions: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,3 +122,5 @@ class DiscoveryResult:
     diagnostics: tuple[DiscoveryDiagnostic, ...]
     summary: DiscoverySummary
     completeness: ScanCompleteness
+    exclusions: tuple[ScopeExclusion, ...] = ()
+    exclusions_omitted: int = 0

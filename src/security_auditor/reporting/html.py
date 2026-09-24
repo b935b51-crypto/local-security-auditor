@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from html import escape
 
-from .i18n import HTML_LOCALE, diagnostic_message, display, message, scanner_label
+from .i18n import HTML_LOCALE, diagnostic_message, display, message, scanner_label, scope_label
 from .models import ScanReport
 from .serialization import report_view
 
@@ -52,6 +52,8 @@ def render(report: ScanReport) -> str:
         out.append(f"<p><strong>{_m('aborted_warning')}</strong></p>")
     elif state == "FAILED":
         out.append(f"<p><strong>{_m('failed_warning')}</strong></p>")
+    else:
+        out.append(f"<p>{_m('scope_complete')}</p>")
     if data["report_truncated"]:
         out.append(f"<p><strong>{_m('truncated_warning')}</strong> "
                    f"{_m('total')}：{_e(counts['total_findings'])}；"
@@ -86,10 +88,21 @@ def render(report: ScanReport) -> str:
                        f"({_v(finding['ai_review']['confidence'])})</p>")
         out.append("</article>")
     out.append(f"</section><section><h2>{_m('groups')}</h2>")
+    findings_by_fingerprint = {item["fingerprint"]: item for item in data["findings"]}
+    attack_path_members = {fingerprint for path in data["attack_paths"]
+                           for fingerprint in path["contributing_findings"]}
     for group in data["finding_groups"]:
         supporting = sum(member["role"] == "supporting" for member in group["members"])
-        out.append(f"<p>{_m('primary')} <code>{_e(group['primary'])}</code>："
-                   f"{_e(supporting)} {_m('supporting')}</p>")
+        if not supporting and group["primary"] not in attack_path_members:
+            continue
+        primary = findings_by_fingerprint.get(group["primary"])
+        if primary is None:
+            continue
+        location = primary["location"]
+        where = (location["path"] or "") + (
+            f":{location['start_line']}" if location["start_line"] else "")
+        out.append(f"<p>{_m('primary')}：{_e(primary['title'])} "
+                   f"<code>{_e(where)}</code>；{_e(supporting)} {_m('supporting')}</p>")
     out.append(f"</section><section><h2>{_m('attack_paths')}</h2>")
     for path in data["attack_paths"]:
         out.append(f"<details><summary>{_v(path['title'])} ({_v(path['confidence'])})</summary>"
@@ -138,6 +151,19 @@ def render(report: ScanReport) -> str:
         path = f"<code>{_e(diagnostic['path'])}</code>：" if diagnostic["path"] else ""
         out.append(f"<p>{path}<code>{_e(diagnostic['code'])}</code> — "
                    f"{_e(diagnostic_message(diagnostic['code'], diagnostic['message']))}</p>")
+    scope = data["discovery"]["scope"]
+    out.append(f"</section><section><h2>{_m('scope')}</h2><p>{_m('scope_note')}</p>"
+               f"<p>{_m('default_exclusions')}：{_v(scope['default_exclusions_applied'])}；"
+               f"{_m('excluded_directories')}：{_e(scope['excluded_directories'])}；"
+               f"{_m('excluded_files')}：{_e(scope['excluded_files'])}</p><ul>")
+    for entry in scope["entries"][:20]:
+        out.append(f"<li><code>{_e(entry['path'])}</code> — "
+                   f"{_e(scope_label(entry['class']))} "
+                   f"<code>{_e(entry['reason'])}</code></li>")
+    out.append("</ul>")
+    remaining = scope["entries_omitted"] + max(0, len(scope["entries"]) - 20)
+    if remaining:
+        out.append(f"<p>{_m('scope_more')}：{_e(remaining)}</p>")
     if data["limitations"]:
         out.append(f"</section><section><h2>{_m('limitations')}</h2><ul>")
         for limitation in data["limitations"]:

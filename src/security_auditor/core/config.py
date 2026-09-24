@@ -7,6 +7,7 @@ from pathlib import Path
 import tomllib
 
 from .models import ScanProfile
+from .scope import DEFAULT_EXCLUDE
 
 
 HARD_MAX_FILE_SIZE = 32 * 1024 * 1024
@@ -27,10 +28,6 @@ DEFAULT_MAX_TOTAL_BYTES = 128 * 1024 * 1024
 DEFAULT_MAX_SNIFF_BYTES = 8 * 1024
 DEFAULT_MAX_LINE_LENGTH = 8 * 1024
 DEFAULT_MAX_ELAPSED_SECONDS = 300
-DEFAULT_EXCLUDE = (
-    ".git/", "node_modules/", ".venv/", "venv/", "dist/",
-    "build/", "coverage/", "__pycache__/", ".cache/",
-)
 
 SECRET_HARD_CAPS = {
     "max_file_bytes": 4 * 1024 * 1024,

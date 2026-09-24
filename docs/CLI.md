@@ -26,6 +26,8 @@ Exit codes: `0` scan/report completed, `2` CLI/config usage error, `3` target va
 
 See [Reporting](REPORTING.md) for output schema, coverage meanings, and privacy rules.
 
+The default project scope prunes known generated caches, virtual environments, dependency vendor trees, and build outputs before descending into them. `.env`, `tests/`, manifests, and lockfiles remain eligible. JSON `discovery.scope`, console totals, and the zh-TW HTML scope section disclose what was intentionally excluded; these exclusions are distinct from scanner failures. `--config` can provide trusted `default_exclude`, `exclude`, and explicit path-based `include` overrides; target-local files cannot silently change these rules. See [Discovery](DISCOVERY.md).
+
 Phase 8 adds `--propose-fixes` for guidance and non-applied patch proposals. `--ai-remediation` requires `--propose-fixes` and separately grants Gemini patch egress when online; `--ai` alone remains advisory review only. `--offline` still allows deterministic proposals. There is no apply option and runtime target tests are never run. See [Remediation](REMEDIATION.md).
 
 Phase 9 adds `security-auditor gui` for a local Tk desktop interface and `security-auditor gate REPORT.json [--format console|json]` for deterministic decisions over an existing canonical JSON 1.1 report. Gate never rescans the target; default policy 1.0 blocks incomplete coverage and HIGH primary findings, while AI remains advisory. Gate exit codes are 0 PASS, 10 WARN, 20 BLOCK, 2 usage, and 3 invalid report. The GUI is imported lazily; `scan`, `gate`, `--help`, and `--version` work without a Tk runtime. See [GUI](GUI.md) and [Security Gate](SECURITY_GATE.md).

@@ -54,6 +54,7 @@ def render(report: ScanReport) -> str:
                                "rules": [rules[key] for key in sorted(rules)]}},
            "results": results,
            "properties": {"scanCoverage": view["coverage"],
+                          "scanScope": view["discovery"]["scope"],
                           "reportTruncated": view["report_truncated"],
                           "schemaVersion": view["schema_version"],
                           "externalServices": view["summary"]["external_services"]}}

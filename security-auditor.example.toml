@@ -18,7 +18,7 @@ max_elapsed_seconds = 300
 follow_symlinks = false
 follow_reparse_points = false
 include = []
-default_exclude = [".git/", "node_modules/", ".venv/", "venv/", "dist/", "build/", "coverage/", "__pycache__/", ".cache/"]
+default_exclude = [".uv-cache/", ".mypy_cache/", ".pytest_cache/", ".ruff_cache/", ".pyright/", ".pyre/", "__pycache__/", ".cache/", ".tox/", ".nox/", ".venv/", "venv/", "env/", "node_modules/", "dist/", "build/", "out/", "target/", ".next/", ".nuxt/", ".svelte-kit/", "coverage/", "htmlcov/", ".git/", ".hg/", ".svn/", ".coverage", "coverage.xml"]
 exclude = [] # security-scan specific ignores; independent of .gitignore
 
 [secrets]

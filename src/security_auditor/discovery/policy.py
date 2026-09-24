@@ -12,6 +12,9 @@ from security_auditor.core.config import (
     HARD_MAX_FILE_COUNT, HARD_MAX_FILE_SIZE, HARD_MAX_LINE_LENGTH,
     HARD_MAX_SNIFF_BYTES, HARD_MAX_TOTAL_BYTES,
 )
+from security_auditor.core.scope import (
+    ExclusionReason, ScopeClass, classify_default_pattern,
+)
 
 
 def _normalized_pattern(pattern: str) -> str:
@@ -78,10 +81,33 @@ class DiscoveryPolicy:
         return any(pattern_matches(p, path, is_directory=is_directory) for p in self.include)
 
     def excluded(self, path: str, *, is_directory: bool = False) -> bool:
+        return self.exclusion(path, is_directory=is_directory) is not None
+
+    def exclusion(self, path: str, *, is_directory: bool = False
+                  ) -> tuple[ScopeClass, ExclusionReason] | None:
         if self.included(path, is_directory=is_directory):
-            return False
-        return any(pattern_matches(p, path, is_directory=is_directory)
-                   for p in (*self.default_exclude, *self.exclude))
+            return None
+        for pattern in self.default_exclude:
+            if pattern_matches(pattern, path, is_directory=is_directory):
+                return classify_default_pattern(pattern)
+        if any(pattern_matches(p, path, is_directory=is_directory) for p in self.exclude):
+            return ScopeClass.UNKNOWN, ExclusionReason.EXCLUDED_USER_POLICY
+        return None
+
+    def may_include_descendant(self, directory: str) -> bool:
+        """Only a trusted include naming this tree may reopen an excluded directory."""
+        if self.included(directory, is_directory=True):
+            return True
+        prefix = directory.replace("\\", "/").strip("/") + "/"
+        if os.name == "nt":
+            prefix = prefix.casefold()
+        for pattern in self.include:
+            normalized = _normalized_pattern(pattern)
+            if os.name == "nt":
+                normalized = normalized.casefold()
+            if normalized.startswith(prefix):
+                return True
+        return False
 
     def admits_file(self, path: str) -> bool:
         return not self.include or self.included(path)

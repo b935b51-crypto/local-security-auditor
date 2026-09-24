@@ -156,14 +156,14 @@ class DiscoveryTests(unittest.TestCase):
         self.write("build/generated.py")
         default = self.scan()
         self.assertIn(".env", {a.path for a in default.artifacts})
-        self.assertIn("nested/node_modules", {s.path for s in default.skipped})
+        self.assertIn("nested/node_modules", {s.path for s in default.exclusions})
         self.assertTrue(pattern_matches("SRC\\*.PY", "src/app.py", is_directory=False, windows=True))
         self.assertFalse(pattern_matches("SRC\\*.PY", "src/app.py", is_directory=False, windows=False))
         with_gitignore = self.scan(DiscoveryPolicy(respect_gitignore=True))
         self.assertNotIn(".env", {a.path for a in with_gitignore.artifacts})
         override = self.scan(DiscoveryPolicy(include=("nested/node_modules/dependency.py",)))
         self.assertIn("nested/node_modules/dependency.py", {a.path for a in override.artifacts})
-        self.assertTrue(any(s.reason is SkipReason.NOT_INCLUDED for s in override.skipped))
+        self.assertTrue(any(s.reason.value == "EXCLUDED_USER_POLICY" for s in override.exclusions))
 
     def test_config_limits_and_reparse_opt_in_rejected(self):
         config = load_config(Path(__file__).resolve().parents[1] / "security-auditor.example.toml")

@@ -10,11 +10,13 @@ from time import monotonic
 from typing import Callable
 
 from security_auditor.core.models import FileArtifact, FileIdentity, ScanTarget
+from security_auditor.core.scope import ExclusionReason, ScopeClass
 from .classifier import classify
 from .ignore import GitIgnore, load_root_gitignore
 from .models import (
     DiagnosticCode, DiagnosticSeverity, DiscoveryDiagnostic, DiscoveryResult,
-    DiscoverySummary, ScanCompleteness, SkipReason, SkippedArtifact, TraversalStats,
+    DiscoverySummary, ScanCompleteness, ScopeExclusion, SkipReason, SkippedArtifact,
+    TraversalStats,
 )
 from .path_safety import is_reparse_point, is_within_root, unsafe_component
 from .platform.identity import file_identity
@@ -32,12 +34,18 @@ class _Counters:
     bytes_inspected: int = 0
     files_skipped: int = 0
     directories_skipped: int = 0
+    files_excluded: int = 0
+    directories_excluded: int = 0
+    default_exclusions: int = 0
+    user_exclusions: int = 0
 
     def freeze(self) -> TraversalStats:
         return TraversalStats(
             self.directories_visited, self.entries_seen, self.files_discovered,
             self.files_admitted, self.files_inspected, self.bytes_inspected,
             self.files_skipped, self.directories_skipped,
+            self.files_excluded, self.directories_excluded,
+            self.default_exclusions, self.user_exclusions,
         )
 
 
@@ -66,6 +74,8 @@ def discover(target: ScanTarget, policy: DiscoveryPolicy,
     stats = _Counters()
     artifacts: list[FileArtifact] = []
     skipped: list[SkippedArtifact] = []
+    exclusions: list[ScopeExclusion] = []
+    exclusions_omitted = 0
     diagnostics: list[DiscoveryDiagnostic] = []
     completeness = ScanCompleteness.COMPLETE
     root: Path | None = None
@@ -89,12 +99,29 @@ def discover(target: ScanTarget, policy: DiscoveryPolicy,
         else:
             stats.files_skipped += 1
 
+    def exclude(path: str, scope: ScopeClass, reason: ExclusionReason, *,
+                is_directory: bool = False) -> None:
+        nonlocal exclusions_omitted
+        if len(exclusions) < 200:
+            exclusions.append(ScopeExclusion(path, scope, reason, is_directory))
+        else:
+            exclusions_omitted += 1
+        if is_directory:
+            stats.directories_excluded += 1
+        else:
+            stats.files_excluded += 1
+        if reason is ExclusionReason.EXCLUDED_USER_POLICY:
+            stats.user_exclusions += 1
+        else:
+            stats.default_exclusions += 1
+
     def result() -> DiscoveryResult:
         return DiscoveryResult(
             root, tuple(sorted(artifacts, key=lambda a: _sort_key(a.path))),
             tuple(sorted(skipped, key=lambda a: (*_sort_key(a.path), a.reason.value))),
             tuple(sorted(diagnostics, key=lambda d: (*_sort_key(d.path or ""), d.code.value))),
             DiscoverySummary(stats.freeze(), monotonic() - started), completeness,
+            tuple(sorted(exclusions, key=lambda x: _sort_key(x.path))), exclusions_omitted,
         )
 
     try:
@@ -241,11 +268,14 @@ def discover(target: ScanTarget, policy: DiscoveryPolicy,
                 skip(relative, SkipReason.OUTSIDE_ROOT, is_directory=is_dir)
                 continue
             if is_dir:
-                if policy.excluded(relative, is_directory=True) and not policy.include:
-                    skip(relative, SkipReason.EXCLUDED_BY_POLICY, is_directory=True)
+                scope_exclusion = policy.exclusion(relative, is_directory=True)
+                if scope_exclusion and not policy.may_include_descendant(relative):
+                    exclude(relative, *scope_exclusion, is_directory=True)
                     continue
-                if gitignore.ignores(relative, is_directory=True) and not (policy.include or gitignore.has_negation):
-                    skip(relative, SkipReason.EXCLUDED_BY_POLICY, is_directory=True)
+                if (gitignore.ignores(relative, is_directory=True)
+                        and not (policy.may_include_descendant(relative) or gitignore.has_negation)):
+                    exclude(relative, ScopeClass.UNKNOWN,
+                            ExclusionReason.EXCLUDED_USER_POLICY, is_directory=True)
                     continue
                 if depth + 1 > policy.limits.max_directory_depth:
                     diagnostic(DiagnosticCode.MAX_DEPTH_REACHED, relative)
@@ -274,19 +304,22 @@ def discover(target: ScanTarget, policy: DiscoveryPolicy,
                 diagnostic(DiagnosticCode.STAT_FAILED, relative)
                 skip(relative, SkipReason.UNSUPPORTED_TYPE)
                 continue
+            scope_exclusion = policy.exclusion(relative)
+            if scope_exclusion:
+                exclude(relative, *scope_exclusion)
+                continue
+            if gitignore.ignores(relative, is_directory=False) and not policy.included(relative):
+                exclude(relative, ScopeClass.UNKNOWN, ExclusionReason.EXCLUDED_USER_POLICY)
+                continue
+            if not policy.admits_file(relative):
+                exclude(relative, ScopeClass.UNKNOWN, ExclusionReason.EXCLUDED_USER_POLICY)
+                continue
             stats.files_discovered += 1
             if stats.files_discovered > policy.limits.max_file_count:
                 diagnostic(DiagnosticCode.MAX_FILES_REACHED, relative)
                 skip(relative, SkipReason.RESOURCE_LIMIT)
                 completeness = ScanCompleteness.ABORTED
                 break
-            if policy.excluded(relative) or gitignore.ignores(relative, is_directory=False):
-                if not policy.included(relative):
-                    skip(relative, SkipReason.EXCLUDED_BY_POLICY)
-                    continue
-            if not policy.admits_file(relative):
-                skip(relative, SkipReason.NOT_INCLUDED)
-                continue
             if info.st_size > policy.limits.max_file_size_bytes:
                 diagnostic(DiagnosticCode.FILE_TOO_LARGE, relative)
                 skip(relative, SkipReason.TOO_LARGE)
