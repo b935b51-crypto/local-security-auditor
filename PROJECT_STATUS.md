@@ -1,8 +1,8 @@
 # Project Status
 
 - Last updated: 2026-09-24 (Asia/Taipei)
-- Current milestone: Local Security Auditor `1.0.1` patch preparation; Phases 0–9 complete and Phase 10 not started
-- Status: **PATCH VALIDATED, HISTORICAL CACHE MISS UNEXPLAINED**. The 1.0.1 wheel/sdist and clean install passed; the original 1.0.0 process did not record its effective cache root, so its 0/341 cache hits cannot be attributed with certainty. The existing 1.0.0 tag and GitHub Release were published before this patch; this task has not tagged or pushed 1.0.1.
+- Current milestone: Local Security Auditor `1.0.1` release readiness; Phases 0–9 complete and Phase 10 not started
+- Status: **READY TO TAG v1.0.1** after a current-behavior recheck. The historical 1.0.0 0/341 cache-hit cause remains unproven, but current source and clean-installed 1.0.1 each use the same production cache root and all 341 current keys resolve to fresh entries. No current release blocker was found. The existing 1.0.0 release was published earlier; this task did not tag, push, or publish 1.0.1.
 
 ## Implemented
 
@@ -71,7 +71,14 @@
 - Python 3.12.11 full offline suite: 199 tests, 193 passed, 0 failed, 6 skipped. The ignored `1.0.1` wheel/sdist have matching metadata and clean archive member/path checks. A repo-external clean wheel install confirmed default offline/no fake provider call and `--osv --no-ai` using a fake provider; the sdist installed offline in a second clean environment.
 - The clean 1.0.1 wheel scanned the authorized Trading Platform twice from outside the repo: `--offline --no-ai` and `--osv --no-ai`. Each had 344 dependency records, 341 cache hits, zero `NO_DATA`, zero OSV requests, dependency and overall COMPLETE, and Gate WARN. `scan.offline` was true and false respectively. Target Git short status was empty before and after. No Gemini call or target execution/mutation occurred.
 
+## 1.0.1 release readiness recheck
+
+- Baseline `c91ee1c` on `main` had only pre-existing untracked audit reports and `uv.lock`; no tracked user edits. Source CLI, clean-installed wheel, wheel metadata, and sdist metadata all report 1.0.1. The existing wheel/sdist SHA-256 values match the prepared artifacts: `47416bcce2b3d2329e210c7b797773cba67b4251f2bb5db68a33c6aaac06c572` and `55a6e34bad7749335bfb43d0b20a3ca6e13c883655d50e8af31ab42033036604`.
+- Final Python 3.12.11 offline suite: 199 tests, 193 passed, 0 failed, 6 skipped. A fresh repo-external wheel install showed `--offline`, `--osv`, `--ai`, and `--no-ai` in help; contradictory `--offline --osv` exited with usage code 2 before scanning. Synthetic fake-provider checks confirmed default and explicit offline sent zero OSV/Gemini requests, `--osv --no-ai` enabled only fake OSV, and `--ai` alone did not enable OSV.
+- Current Trading Platform inventory remains 344 records and 341 unique exact registry keys. Source and clean-installed production cache resolvers matched; source production API returned 341 fresh hits and zero misses from 342 cache entries. The clean-installed 1.0.1 wheel scanned the target with `--offline --no-ai` and `--osv --no-ai`. Both produced 341 cache hits, zero `NO_DATA`, zero provider requests, Dependencies/Overall COMPLETE, Gate WARN, and matching finding fingerprints/coverage. `scan.offline` was true and false respectively. The target Git status remained empty before and after. No live OSV/Gemini request occurred.
+- The historical 1.0.0 zero-hit cause cannot be reconstructed because that process did not record its effective cache root. It is not reproducible in the current production cache API or clean-installed 1.0.1 scan. No cache implementation, Gate policy, report schema, provider budget, or scanner rule was changed during this recheck. Release notes describe only the demonstrated CLI/UX patch.
+
 ## Git and next action
 
-- Branch `main`; local 1.0.1 patch checkpoint only. No 1.0.1 tag or push has been performed. Ignored `dist/` contains local 1.0.1 artifacts; pre-existing untracked audit reports and `uv.lock` are preserved.
-- The next decision is whether the historical uncaptured cache environment needs separate observation before tagging 1.0.1. Do not infer a cache bug or alter Gate policy from the old report. Phase 10 remains future work.
+- The existing 1.0.1 wheel/sdist remain ignored in `dist/`; no rebuild was needed. This recheck changes documentation only. Pre-existing untracked audit reports and `uv.lock` remain outside Git. No 1.0.1 tag or push has been performed.
+- Next release action, only after a separate user instruction: create annotated `v1.0.1` tag and, if authorized, push `main` and the tag. Do not infer project safety from COMPLETE coverage or start Phase 10.
