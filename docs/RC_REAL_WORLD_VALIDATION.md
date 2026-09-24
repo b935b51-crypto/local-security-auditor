@@ -1,5 +1,11 @@
 # RC real-world validation: Trading Platform coverage diagnosis
 
+## Large text Secret coverage assessment (2026-09-24)
+
+The current 0.9.0 RC distribution remains refreshed and verified; this assessment made no production change or new build. A bounded, content-free streaming measurement of the known 2,169,199-byte UTF-8 text artifact `log/program.log.20260924` found 251 LF-delimited lines. Nine lines exceeded the 16 KiB Secret default and account for 87.3% of file bytes; six exceeded even the 64 KiB hard line ceiling and account for 82.6%. Raising only the 1 MiB file cap would still leave the real scan PARTIAL. Synthetic 2/4/8/16 MiB benchmarks found roughly 5× file-size peak traced Python allocations for full-buffer scanning and low memory for short-line streaming/chunked prototypes, while bounded long-line prototypes skip the long line and report incomplete coverage. Cross-64 KiB fake-token boundary checks matched candidate locations and fingerprints on accepted lines, but did not prove full rule parity on very long lines.
+
+The separate [large text assessment](LARGE_TEXT_SECRET_ASSESSMENT.md) recommends a **separately authorized Hardening #8 — chunked + overlap**, shaped as a hybrid path for files already admitted by Discovery. The implementation must preserve whole-line context and cross-line state, bound memory/time/matches, and report PARTIAL whenever it cannot examine an applicable line. No scanner limit or exclusion changed; the Trading Platform's last observed Secrets/Overall PARTIAL and Gate BLOCK remain the honest status. No target code was executed, target file changed, live OSV/Gemini call made, or raw log content retained in this repository.
+
 ## Bounded full Trading Platform live OSV validation (2026-09-24)
 
 At source checkpoint `4d5f9ab`, a fresh passive inventory of the Trading Platform found four admitted dependency sources: `pyproject.toml`, `uv.lock`, `apps/dashboard/package.json`, and `apps/dashboard/package-lock.json`. The 344 records comprised one evidenced first-party editable root and 343 exact registry dependency records, collapsing to 341 unique OSV keys. There were no unresolved third-party, local-path, VCS, URL, or constraint-only records. No target code, tests, install hooks, or modules ran, and the target Git short status was empty before and after.
