@@ -2,6 +2,27 @@
 
 Validated on 2026-09-24 with Windows NT 10.0.26200, uv 0.12.13, and CPython 3.12.11. This is a **release candidate baseline**, not a final 1.0.0 release or a certification of scanned projects. Phase 10 has not started.
 
+## Artifact refresh from `9ef8b40` (2026-09-24)
+
+The stale local 0.9.0 wheel and sdist were replaced after `uv run --offline --no-sync python -m unittest discover -s tests -q` passed on Python 3.12.11: **181 tests, 175 passed, 0 failed, 6 skipped**. Live OSV and Gemini gates were unset. `uv build --offline` built the sdist and then the wheel from that sdist. `pyproject.toml` remains the single version source at `0.9.0`; the wheel/sdist metadata, installed CLI, and JSON `tool.version` all returned `0.9.0`.
+
+| Kept artifact in ignored `dist/` | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `local_security_auditor-0.9.0-py3-none-any.whl` | 174,016 | `3cedfc0c90af4d2d1e32f4a216bb36a19acb8ba699f52df6e57b87a102e72d1a` |
+| `local_security_auditor-0.9.0.tar.gz` | 126,870 | `973680f8c29a2bf370356a844a7a184c4278245ab8b34709802d3afcadba0788` |
+
+Both archives were inspected by member name and bounded content. They contain the current CLI, GUI, Gate, scope policy, Secret Scanner, dependency provider, reporting, zh-TW localization, package metadata, and wheel console entry point where applicable. They contain no `.env`, audit report, cache, virtual environment, bytecode, target-source copy, or local project/home path marker. The ignored trusted `.env` key was compared against both archives **in memory only**; its exact value was absent and was never printed. The sdist includes the declared source and build metadata, not repository docs/tests/skills. Package metadata remains `local-security-auditor`, Python `>=3.12,<3.13`, optional `gemini` (`google-genai>=2.25.0,<3.0.0`), and Hatchling.
+
+Three new Python 3.12.11 environments outside the checkout validated the artifacts. The **core-only wheel** installed with no source `PYTHONPATH`, no Gemini SDK, and an isolated working directory. Import, `--version`, root/scan/gate help, offline JSON 1.1, zh-TW HTML, SARIF 2.1.0, and Gate PASS/BLOCK passed. A synthetic oversized log produced `SECRET_FILE_TOO_LARGE` at `logs/big.log` and Gate BLOCK. Four generated/cache directories (`.uv-cache`, `.mypy_cache`, `.pytest_cache`, `.venv`) were pruned without degrading complete coverage, while `src/app.py`, `tests/test_app.py`, `pyproject.toml`, and `uv.lock` were admitted. The admitted editable root was counted once as `FIRST_PARTY_ROOT`, with zero unresolved third-party records.
+
+Installed-wheel fake-transport tests exercised Hardening #6 and #7 without network. Batch, detail, and total request caps stopped additional calls and retained partial findings. Two batches sharing one advisory made only one detail request. A 106-ID response accepted 100, truncated 6, emitted `DEPENDENCY_OSV_ADVISORY_LIMIT_REACHED`, kept Dependencies PARTIAL, avoided `BAD_RESPONSE` and complete-cache write, and made Gate BLOCK. The installed Tk 8.6 GUI entry point constructed a **viewable** main window with the expected title and widgets; the controlled smoke closed it immediately. This validates startup, not every dialog, high-DPI layout, or accessibility behavior.
+
+The separate **Gemini-extra wheel** installation resolved `google-genai==2.25.0`; provider import succeeded. An eligible synthetic finding with no key produced `AI_API_KEY_MISSING` while deterministic scanning completed; `--offline --ai` produced `AI_OFFLINE`. Both reports recorded Gemini and OSV as unused. No live provider call occurred. A third clean environment built and installed the **sdist** from its archive and passed import, version, and help. Source-tree and clean-wheel reports on the same inert target were equal after excluding only scan ID, timestamps, and duration; both gated PASS. A second build into a disposable directory produced the same filenames, metadata versions, and member lists. Byte-for-byte reproducibility was not required. All temporary environments, synthetic targets, reports, and second-build files were removed; only the ignored final `dist/` artifacts remain.
+
+**Current 0.9.0 distribution status: REFRESHED AND VERIFIED** for these clean-install and synthetic offline checks. The recent real-world Trading Platform dependency scan is documented separately in [RC real-world validation](RC_REAL_WORLD_VALIDATION.md); it remains overall PARTIAL because its oversized Secret log was not changed. The next decision before final 1.0.0 is how to handle that large-text Secret coverage gap without weakening safety limits.
+
+The sections below preserve the **initial** 0.9.0 packaging validation before Hardening #4–#7. Their build sizes, test count, and next-step language are historical; the refreshed artifacts and current next action are recorded above.
+
 ## Version and artifacts
 
 `pyproject.toml` is the single version source: `0.9.0`. Installed code uses `importlib.metadata`; an uninstalled source checkout reads that same `pyproject.toml` if distribution metadata is absent. The CLI, wheel `METADATA`, and JSON `tool.version` all returned `0.9.0`.
@@ -24,4 +45,4 @@ The source offline regression suite on Python 3.12.11 ran 149 tests: 145 passed,
 
 Real Windows symlink creation and UNC paths remain unvalidated on this host. Standalone executable and installer are not built. High-DPI and native assistive technology behavior need manual checks. Redaction is heuristic. Gemini's installed-wheel credential route was verified only for missing key and offline behavior; no new live Gemini request was made. Proposal-only remediation remains in force, with no controlled patch application.
 
-Recommended next work is **v1 RC real-world validation** against a medium Python repository, a Node/TypeScript repository, and a mixed-language repository, always as untrusted static inputs. Review completeness and residual risks before deciding whether `0.9.0` is ready to become `1.0.0`.
+At the initial packaging baseline, the recommended next work was **v1 RC real-world validation** against a medium Python repository, a Node/TypeScript repository, and a mixed-language repository, always as untrusted static inputs. The current recommendation is the large-text Secret coverage decision recorded in the artifact-refresh section above.
