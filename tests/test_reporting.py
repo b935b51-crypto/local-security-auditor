@@ -118,7 +118,7 @@ class ReportTests(unittest.TestCase):
         self.assertFalse(any(r.scanner.id == "sast" for r in quick.scanner_results))
         self.assertEqual(quick.coverage.overall, CoverageStatus.PARTIAL)
         self.assertIn("SCAN COVERAGE: PARTIAL", console.render(quick))
-        self.assertIn("Scan coverage: PARTIAL", html.render(quick))
+        self.assertIn("掃描覆蓋率：部分完成", html.render(quick))
         self.assertEqual(json.loads(sarif.render(quick))["runs"][0]["properties"]["scanCoverage"]["overall"], "PARTIAL")
 
     def test_report_injection_and_unicode(self):
@@ -133,6 +133,41 @@ class ReportTests(unittest.TestCase):
         self.assertIn("&lt;svg", outputs[3])
         self.assertIn("中文😀", outputs[3])
         json.loads(outputs[1]); json.loads(outputs[2])
+
+    def test_html_zh_tw_safe_wording_and_machine_formats(self):
+        report = self.report()
+        rendered = html.render(report)
+        self.assertIn('<html lang="zh-TW">', rendered)
+        for label in ("本機安全掃描器", "掃描目標", "掃描覆蓋率", "掃描摘要",
+                      "確定性掃描結果", "問題群組", "潛在攻擊路徑", "依賴套件漏洞",
+                      "AI 輔助審查", "修復建議", "掃描覆蓋率與診斷", "隱私與外部服務"):
+            self.assertIn(label, rendered)
+        self.assertIn("離線模式：是", rendered)
+        self.assertIn("使用 Gemini AI：否", rendered)
+        self.assertNotIn("True", rendered)
+        self.assertNotIn("False", rendered)
+        for unsafe in ("此專案安全", "沒有漏洞", "掃描通過"):
+            self.assertNotIn(unsafe, rendered)
+        self.assertIn("Content-Security-Policy", rendered)
+        self.assertNotIn("<script", rendered)
+        self.assertEqual(json.loads(json_report.render(report))["schema_version"], "1.1")
+
+    def test_html_partial_zero_finding_warning(self):
+        quick = self.report(profile=ScanProfile.QUICK,
+                            config=replace(AuditConfig(), limits=DiscoveryLimits(max_file_size_bytes=1)))
+        rendered = html.render(quick)
+        self.assertIn("警告：本次掃描覆蓋範圍不完整", rendered)
+        self.assertIn("在已完成分析的範圍內未偵測到安全問題。", rendered)
+
+    def test_html_ast_diagnostic_preserves_code_and_relative_path(self):
+        report = self.report()
+        report = replace(report, diagnostics=(ReportDiagnostic(
+            "sast.python", "SAST_AST_DEPTH_LIMIT_REACHED", "Python AST depth limit reached",
+            "src/synthetic.py"),))
+        rendered = html.render(report)
+        self.assertIn("src/synthetic.py</code>：<code>SAST_AST_DEPTH_LIMIT_REACHED", rendered)
+        self.assertIn("Python AST 深度已達安全分析上限。", rendered)
+        self.assertNotIn(str(self.root), rendered)
 
     def test_last_output_boundary_drops_raw_snippet_and_redacts_key(self):
         report = self.report()

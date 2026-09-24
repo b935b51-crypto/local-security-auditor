@@ -23,7 +23,8 @@ _MESSAGES = {
     "SAST_FILE_TOO_LARGE": "Python file exceeds the SAST file byte limit",
     "SAST_TOTAL_BYTE_BUDGET_REACHED": "SAST total byte budget reached",
     "SAST_PARSE_FAILED": "Python source could not be parsed",
-    "SAST_AST_NODE_LIMIT_REACHED": "Python AST node or depth limit reached",
+    "SAST_AST_NODE_LIMIT_REACHED": "Python AST node limit reached",
+    "SAST_AST_DEPTH_LIMIT_REACHED": "Python AST depth limit reached",
     "SAST_FUNCTION_LIMIT_REACHED": "Python function analysis node limit reached",
     "SAST_FINDING_LIMIT_REACHED": "SAST finding limit reached",
     "SAST_ANALYSIS_TIMEOUT": "SAST elapsed time limit reached",
@@ -78,14 +79,14 @@ class SASTScanner:
         deadline = started + self.limits.max_seconds
         findings = []
         diagnostics: list[ScannerDiagnostic] = []
-        seen: set[str] = set()
-        considered = scanned = skipped = byte_count = candidates = limits_hit = 0
+        seen: set[tuple[str, str | None]] = set()
+        considered = applicable = not_applicable = scanned = skipped = byte_count = candidates = limits_hit = 0
         state = "complete"
 
-        def note(code: str) -> None:
-            if code not in seen:
-                seen.add(code)
-                diagnostics.append(ScannerDiagnostic(code, _MESSAGES[code]))
+        def note(code: str, path: str | None = None) -> None:
+            if (code, path) not in seen:
+                seen.add((code, path))
+                diagnostics.append(ScannerDiagnostic(code, _MESSAGES[code], path))
 
         if discovery_state is not ScanCompleteness.COMPLETE:
             note("SAST_DISCOVERY_INCOMPLETE")
@@ -98,8 +99,9 @@ class SASTScanner:
                 limits_hit += 1
                 break
             if not self.supports(artifact):
-                skipped += 1
+                not_applicable += 1
                 continue
+            applicable += 1
             if artifact.size_bytes > self.limits.max_file_bytes:
                 note("SAST_FILE_TOO_LARGE")
                 state = "partial" if state == "complete" else state
@@ -136,8 +138,8 @@ class SASTScanner:
                 state = "partial" if state == "complete" else state
                 skipped += 1
                 continue
-            except ASTBudgetError:
-                note("SAST_AST_NODE_LIMIT_REACHED")
+            except ASTBudgetError as error:
+                note("SAST_" + str(error), artifact.path)
                 state = "partial" if state == "complete" else state
                 skipped += 1
                 limits_hit += 1
@@ -177,7 +179,9 @@ class SASTScanner:
                 state = "aborted" if "SAST_ANALYSIS_TIMEOUT" in analysis.diagnostics else state
                 break
         summary = ScannerSummary(considered, scanned, skipped, byte_count, candidates,
-                                 len(findings), 0, 0, limits_hit, state)
+                                 len(findings), 0, 0, limits_hit, state,
+                                 artifacts_applicable=applicable,
+                                 artifacts_not_applicable=not_applicable)
         return ScannerResult(self.metadata, tuple(findings),
                              "completed" if state == "complete" else state,
                              tuple(diagnostics), summary)

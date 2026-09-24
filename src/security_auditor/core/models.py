@@ -260,6 +260,8 @@ class ScannerSummary:
     limits_hit: int = 0
     completeness: Literal["complete", "partial", "aborted", "failed"] = "complete"
     details: tuple[tuple[str, int], ...] = ()
+    artifacts_applicable: int = 0
+    artifacts_not_applicable: int = 0
 
 
 @dataclass(frozen=True, slots=True)

@@ -31,7 +31,8 @@ _MESSAGES = {
     "BEHAVIOR_RULE_ERROR": "behavior rule failed without exposing source content",
     "BEHAVIOR_ANALYSIS_TIMEOUT": "behavior elapsed time limit reached",
     "BEHAVIOR_PARSE_FAILED": "Python source could not be parsed for behavior analysis",
-    "BEHAVIOR_AST_NODE_LIMIT_REACHED": "Python AST node or depth limit reached",
+    "BEHAVIOR_AST_NODE_LIMIT_REACHED": "Python AST node limit reached",
+    "BEHAVIOR_AST_DEPTH_LIMIT_REACHED": "Python AST depth limit reached",
     "BEHAVIOR_UNSUPPORTED_ENCODING": "behavior source decoding unavailable",
     "BEHAVIOR_READ_FAILED": "admitted file could not be safely read",
     "BEHAVIOR_DISCOVERY_INCOMPLETE": "file discovery was incomplete",
@@ -81,14 +82,14 @@ class BehaviorScanner:
         deadline = monotonic() + self.limits.max_seconds
         findings = []
         diagnostics: list[ScannerDiagnostic] = []
-        seen: set[str] = set()
-        considered = scanned = skipped = byte_count = candidate_count = limits_hit = 0
+        seen: set[tuple[str, str | None]] = set()
+        considered = applicable = not_applicable = scanned = skipped = byte_count = candidate_count = limits_hit = 0
         state = "complete"
 
-        def note(code: str) -> None:
-            if code not in seen:
-                seen.add(code)
-                diagnostics.append(ScannerDiagnostic(code, _MESSAGES[code]))
+        def note(code: str, path: str | None = None) -> None:
+            if (code, path) not in seen:
+                seen.add((code, path))
+                diagnostics.append(ScannerDiagnostic(code, _MESSAGES[code], path))
 
         if discovery_state is not ScanCompleteness.COMPLETE:
             note("BEHAVIOR_DISCOVERY_INCOMPLETE")
@@ -101,8 +102,9 @@ class BehaviorScanner:
                 limits_hit += 1
                 break
             if not self.supports(artifact):
-                skipped += 1
+                not_applicable += 1
                 continue
+            applicable += 1
             if artifact.size_bytes > self.limits.max_file_bytes:
                 note("BEHAVIOR_FILE_TOO_LARGE")
                 skipped += 1
@@ -145,8 +147,8 @@ class BehaviorScanner:
                     skipped += 1
                     state = "partial" if state == "complete" else state
                     continue
-                except ASTBudgetError:
-                    note("BEHAVIOR_AST_NODE_LIMIT_REACHED")
+                except ASTBudgetError as error:
+                    note("BEHAVIOR_" + str(error), artifact.path)
                     skipped += 1
                     limits_hit += 1
                     state = "partial" if state == "complete" else state
@@ -200,7 +202,9 @@ class BehaviorScanner:
                 limits_hit += 1
                 break
         summary = ScannerSummary(considered, scanned, skipped, byte_count, candidate_count,
-                                 len(findings), 0, 0, limits_hit, state)
+                                 len(findings), 0, 0, limits_hit, state,
+                                 artifacts_applicable=applicable,
+                                 artifacts_not_applicable=not_applicable)
         return ScannerResult(self.metadata, tuple(findings),
                              "completed" if state == "complete" else state,
                              tuple(diagnostics), summary)

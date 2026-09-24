@@ -30,8 +30,10 @@ def parse_python(text: str, *, max_nodes: int, max_depth: int) -> ParsedPython:
     while pending:
         node, depth = pending.pop()
         count += 1
-        if count > max_nodes or depth > max_depth:
-            raise ASTBudgetError("SAST_AST_NODE_LIMIT_REACHED")
+        if count > max_nodes:
+            raise ASTBudgetError("AST_NODE_LIMIT_REACHED")
+        if depth > max_depth:
+            raise ASTBudgetError("AST_DEPTH_LIMIT_REACHED")
         pending.extend((child, depth + 1) for child in ast.iter_child_nodes(node))
     return ParsedPython(tree, count)
 

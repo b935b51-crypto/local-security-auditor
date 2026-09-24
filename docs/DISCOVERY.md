@@ -58,4 +58,4 @@ Text language hints come from filename suffix or a parsed first-line shebang, wi
 
 ## Known validation gaps
 
-The Windows host used for Phase 1 could not create symlink fixtures, so the real symlink loop/outside-root integration test was skipped; reparse detection and default-deny behavior were also covered with a simulated reparse identity. Junction creation, UNC/network filesystem identity, and Python 3.12 runtime behavior were not verified on this host. These are limits of verification, not claims that those cases are safe on every filesystem.
+The Windows host used for Phase 1 could not create symlink fixtures, so the real symlink loop/outside-root integration test was skipped; reparse detection and default-deny behavior were also covered with a simulated reparse identity. Junction creation and UNC/network filesystem identity remain unverified on this host. The full offline suite has now passed under uv-managed Python 3.12.11. These are limits of verification, not claims that those cases are safe on every filesystem.

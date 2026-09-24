@@ -12,8 +12,7 @@ Read [security boundaries](docs/SECURITY_BOUNDARIES.md) before changing target-h
 - The default package has no third-party runtime dependencies. Hatchling is build-only. The Phase 6 Gemini adapter uses an optional `gemini` extra and loads only after trusted opt-in. Phase 7 has a `security-auditor scan PATH` CLI, ordered orchestrator, and Console/JSON/SARIF/HTML reporters; see `docs/CLI.md` and `docs/REPORTING.md`.
 - Phase 9 adds a standard-library Tk GUI and a report-only deterministic gate. The CLI lazy-loads GUI code; no GUI dependency is required for scans or gate use. See `docs/GUI.md`, `docs/SECURITY_GATE.md`, and `docs/CODEX_INTEGRATION.md`.
 - Source lives under `src/security_auditor/`; tests use `unittest` in `tests/`.
-- On Windows PowerShell, after Python 3.12 is available: `$env:PYTHONPATH='src'; py -3.12 -m unittest discover -s tests -v`.
-- `uv run --no-sync --python 3.12 python -m unittest discover -s tests -v` is the intended uv route once a suitable interpreter is installed; verify rather than assuming it works locally.
+- On Windows PowerShell, use `uv run python -m unittest discover -s tests -q` from the project root. The project-local uv environment currently uses verified CPython 3.12.11; keep live provider gates unset for offline tests.
 
 ## Architecture rules
 

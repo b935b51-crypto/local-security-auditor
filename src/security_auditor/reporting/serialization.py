@@ -148,6 +148,10 @@ def report_view(report: ScanReport) -> dict:
                       "completeness": r.summary.completeness if r.summary else r.status,
                       "artifacts_scanned": r.summary.artifacts_scanned if r.summary else 0,
                       "artifacts_skipped": r.summary.artifacts_skipped if r.summary else 0,
+                      **({"artifacts_considered": r.summary.artifacts_considered,
+                          "artifacts_applicable": r.summary.artifacts_applicable,
+                          "artifacts_not_applicable": r.summary.artifacts_not_applicable}
+                         if r.summary and r.scanner.id in {"sast.python", "behavior.static"} else {}),
                       "findings": len(r.findings)} for r in report.scanner_results],
         "summary": {"counts": {"total_findings": report.counts.total_findings,
                                 "rendered_findings": report.counts.rendered_findings,

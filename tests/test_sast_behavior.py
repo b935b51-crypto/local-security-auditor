@@ -173,6 +173,63 @@ shutil.rmtree('build')
         self.assertEqual([f.location.path for f in result.findings], ["good.py"])
         self.assertIn("SAST_PARSE_FAILED", {d.code for d in result.diagnostics})
 
+    def test_ast_node_limit_is_per_file_and_nonapplicable_is_not_failure(self):
+        self.write("a_small.py", "x = 1\n")
+        self.write("large.py", "\n".join(f"value_{i} = {i}" for i in range(20)))
+        self.write("z_small.py", "y = 2\n")
+        self.write("config.json", '{"enabled": true}')
+        self.write("README.md", "Synthetic inert documentation")
+        for scanner in (SASTScanner(replace(SASTLimits(), max_ast_nodes=20)),
+                        BehaviorScanner(replace(BehaviorLimits(), max_ast_nodes=20))):
+            with self.subTest(scanner=scanner.metadata.id):
+                result = self.scan(scanner)
+                self.assertEqual(result.status, "partial")
+                self.assertEqual(result.summary.artifacts_considered, 5)
+                self.assertEqual(result.summary.artifacts_applicable, 3)
+                self.assertEqual(result.summary.artifacts_scanned, 2)
+                self.assertEqual(result.summary.artifacts_skipped, 1)
+                self.assertEqual(result.summary.artifacts_not_applicable, 2)
+                limits = [d for d in result.diagnostics if d.code.endswith("AST_NODE_LIMIT_REACHED")]
+                self.assertEqual(len(limits), 1)
+                self.assertEqual(limits[0].path, "large.py")
+                self.assertNotIn(str(self.root), repr(result.diagnostics))
+
+    def test_ast_depth_limit_is_distinct_and_per_file(self):
+        self.write("deep.py", "x = " + "[" * 8 + "0" + "]" * 8 + "\n")
+        self.write("later.py", "x = 1\n")
+        for scanner in (SASTScanner(replace(SASTLimits(), max_ast_depth=4)),
+                        BehaviorScanner(replace(BehaviorLimits(), max_ast_depth=4))):
+            with self.subTest(scanner=scanner.metadata.id):
+                result = self.scan(scanner)
+                self.assertEqual(result.summary.artifacts_scanned, 1)
+                self.assertEqual(result.summary.artifacts_skipped, 1)
+                self.assertEqual([(d.code, d.path) for d in result.diagnostics],
+                                 [("SAST_AST_DEPTH_LIMIT_REACHED" if scanner.metadata.id == "sast.python"
+                                   else "BEHAVIOR_AST_DEPTH_LIMIT_REACHED", "deep.py")])
+
+    def test_ast_budget_state_resets_between_admitted_files(self):
+        self.write("a_near_limit.py", "x = [1, 2, 3]\n")
+        self.write("b_small.py", "y = 1\n")
+        for scanner in (SASTScanner(replace(SASTLimits(), max_ast_nodes=10)),
+                        BehaviorScanner(replace(BehaviorLimits(), max_ast_nodes=10))):
+            with self.subTest(scanner=scanner.metadata.id):
+                result = self.scan(scanner)
+                self.assertEqual(result.status, "completed")
+                self.assertEqual(result.summary.artifacts_scanned, 2)
+                self.assertEqual(result.summary.artifacts_skipped, 0)
+
+    def test_not_applicable_does_not_reduce_sast_completeness(self):
+        self.write("app.py", "x = 1\n")
+        self.write("config.json", '{"enabled": true}')
+        self.write("README.md", "Synthetic inert documentation")
+        result = self.scan(SASTScanner())
+        self.assertEqual(result.status, "completed")
+        self.assertEqual(result.summary.artifacts_considered, 3)
+        self.assertEqual(result.summary.artifacts_applicable, 1)
+        self.assertEqual(result.summary.artifacts_scanned, 1)
+        self.assertEqual(result.summary.artifacts_skipped, 0)
+        self.assertEqual(result.summary.artifacts_not_applicable, 2)
+
     def test_rule_error_is_diagnostic_and_other_rule_continues(self):
         self.write("rules.py", "import os, tempfile\nos.system(input())\ntempfile.mktemp()\n")
         original = PythonTaintAnalyzer._check_call

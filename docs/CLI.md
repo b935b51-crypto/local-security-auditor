@@ -1,6 +1,6 @@
 # CLI
 
-`security-auditor scan PATH` runs static analysis of a local folder. **Scanned code is never executed.** The packaged entry point is `security-auditor`; from this source checkout use `PYTHONPATH=src` and `py -3.12 -m security_auditor` once Python 3.12 is available. The current host has only Python 3.14 verified, so local development checks use `py -3.14` with `PYTHONPATH=src`. `uv` manages a project-local environment; the default runtime has no third-party dependencies. The Gemini SDK is an optional `gemini` extra. The build backend is Hatchling and is required only to build/install the package.
+`security-auditor scan PATH` runs static analysis of a local folder. **Scanned code is never executed.** The packaged entry point is `security-auditor`; from this checkout use `uv run security-auditor scan PATH --offline`. The project-local uv environment uses verified Python 3.12.11; the system Python is not modified. The default runtime has no third-party dependencies. The Gemini SDK is an optional `gemini` extra. The build backend is Hatchling and is required only to build/install the package.
 
 ```powershell
 security-auditor --version

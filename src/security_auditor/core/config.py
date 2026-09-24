@@ -120,7 +120,7 @@ class SASTLimits:
     enabled: bool = True
     max_file_bytes: int = 512 * 1024
     max_total_bytes: int = 32 * 1024 * 1024
-    max_ast_nodes: int = 10000
+    max_ast_nodes: int = 20000
     max_ast_depth: int = 100
     max_function_nodes: int = 5000
     max_findings_per_file: int = 100
@@ -137,7 +137,7 @@ class BehaviorLimits:
     max_file_bytes: int = 512 * 1024
     max_total_bytes: int = 32 * 1024 * 1024
     max_line_bytes: int = 8 * 1024
-    max_ast_nodes: int = 10000
+    max_ast_nodes: int = 20000
     max_ast_depth: int = 100
     max_matches_per_file: int = 100
     max_findings_total: int = 1000
