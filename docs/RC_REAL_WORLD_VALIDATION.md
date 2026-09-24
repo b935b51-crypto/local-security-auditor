@@ -1,5 +1,24 @@
 # RC real-world validation: Trading Platform coverage diagnosis
 
+## OSV live response mismatch diagnosis (2026-09-24)
+
+The hardening #6 ten-key pilot's `VULN_PROVIDER_BAD_RESPONSE` is now localized by a new explicitly gated, staged synthetic test. It used only public PyPI names and exact versions; the official HTTPS provider received no source, path, or credentials. The test records only HTTP status, sanitized media type, byte count, JSON type, allowlisted key names, bounded result/advisory counts, and fixed validator reason codes. It never records response bodies or advisory descriptions.
+
+| Stage | Keys | HTTP | Batch | Detail | Findings | Result |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| 1 | 1 | 200 | 1 | 2 | 2 | Complete |
+| 2 | 2 | 200 | 1 | 3 | 3 | `DEPENDENCY_OSV_DETAIL_BUDGET_REACHED`; partial findings retained |
+| 3 | 5 | 200 | 1 | 3 | 3 | `DEPENDENCY_OSV_DETAIL_BUDGET_REACHED`; partial findings retained |
+| 4 | 10 | 200 | 1 | 0 | 0 | `VULN_PROVIDER_BAD_RESPONSE`; batch `VULNS_LIMIT_EXCEEDED` |
+
+Cumulative actual HTTP attempts: **4 batch + 8 detail = 12 total**. The first three flows proved that a valid response exceeding the three-detail network budget is classified as budget exhaustion, not a bad response. The fourth batch was valid JSON with 10 result objects; one result contained **106 advisory IDs**, over the configured `max_advisories=100` per-result guard. The provider rejected that count before fetching details and classified it as malformed. The original pilot had the same ten-coordinate set, so this is strong evidence for its cause; the previous run's exact HTTP counts remain unknown. There was no retry after the first failure in this diagnostic flow.
+
+Root cause classification: **VALIDATOR_TOO_STRICT** for a legitimate provider response relative to a safety count limit. The 100-advisory cap should remain in force, but its exceedance should be reported as a distinct bounded coverage limit rather than `BAD_RESPONSE`. This diagnosis added stage/reason observability and offline shape/budget tests; it did **not** change the production provider's limiting behavior. A narrowly scoped Hardening #7 is needed to define partial coverage and result preservation for oversized advisory lists. A full Trading Platform online query remains unauthorized and unattempted. The prior 0.9.0 wheel/sdist remain stale.
+
+The Python 3.12.11 default offline suite after this diagnosis ran 176 tests: 170 passed, 0 failed, 6 skipped. All live gates were unset; the gated live diagnosis is skipped by default.
+
+---
+
 ## Hardening #6 provider-budget pilot (2026-09-24)
 
 Source hardening now caps one OSV operation at 10 batch, 50 advisory detail, and 60 total network requests by default. For the Trading Platform's last observed 341 unique exact keys and batch size 50, seven batch requests would be needed without package cache; advisory details are capped at 50 and all network calls at 60. The project was **not** queried online in this hardening. Its earlier offline coverage and Gate result remain the latest observed target state.

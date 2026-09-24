@@ -2,7 +2,7 @@
 
 - Last updated: 2026-09-24 (Asia/Taipei)
 - Current milestone: v1 Release Candidate baseline `0.9.0` after completed Phases 0–9; Phase 10 has not started
-- Status: v1 RC hardening #6 request budgets and advisory deduplication implemented in source; the ten-coordinate live OSV pilot returned `VULN_PROVIDER_BAD_RESPONSE`, so broader live validation remains open. See [RC real-world validation](docs/RC_REAL_WORLD_VALIDATION.md). The prior clean-wheel evidence remains in [Release Candidate](docs/RELEASE_CANDIDATE.md); that wheel predates hardening #4–#6 and must be rebuilt before distribution.
+- Status: v1 RC hardening #6 request budgets and advisory deduplication implemented in source. The ten-coordinate live OSV mismatch is diagnosed: one HTTP 200 batch result had 106 advisory IDs, exceeding the configured 100-advisory per-result guard. The guard remains in force but currently reports `BAD_RESPONSE`. See [RC real-world validation](docs/RC_REAL_WORLD_VALIDATION.md). The prior clean wheel is stale and must be rebuilt before distribution.
 
 ## Implemented
 
@@ -19,6 +19,8 @@
 - Release hardening #5 identifies a first-party root only from matching admitted root `pyproject.toml` project identity and a single root `uv.lock` `editable="."` entry. Same-name registry, absent/conflicting evidence, outside-root editable, and other local path entries remain distinct and conservatively covered. The root stays in inventory but does not count unresolved or reach OSV. JSON 1.1 additively reports first-party and unresolved-third-party counts; zh-TW HTML displays them. Secret per-file diagnostics now attach the existing redacted relative path where safely attributable. The Secret 1 MiB default and hard ceiling, default scan scope, and Gate policy are unchanged.
 
 ## Verification
+
+- OSV response diagnosis: fixed stage/reason metadata distinguishes batch, detail, normalization, and validation errors without payload logging. Offline fake responses show that valid batches exceeding the detail/total network budget preserve findings and report PARTIAL. The gated staged live run progressed through 1, 2, 5, then 10 synthetic keys and stopped at the first failure: 4 actual batch + 8 detail = 12 cumulative requests. The 1-key flow was complete with 2 Findings; 2/5-key flows retained 3 Findings each and correctly reported detail-budget PARTIAL. The 10-key batch returned valid JSON with 10 results; one result had 106 advisory IDs, triggering `stage=batch; reason=VULNS_LIMIT_EXCEEDED` before detail fetch. This is a count-limit classification problem, not detail budget exhaustion. Production limit behavior was not changed, and the Trading Platform was not queried online. Final offline suite results are recorded in the RC validation document.
 
 - Hardening #6: `uv run --offline --no-sync python --version` returned Python 3.12.11. The full default offline suite `uv run --offline --no-sync python -m unittest discover -s tests -q` ran 170 tests: 165 passed, 0 failed, 5 skipped. One bounded ten-coordinate live pilot was attempted: the formal provider returned `VULN_PROVIDER_BAD_RESPONSE`, no Finding, and no successful cache-replay claim. Actual live HTTP method counts were not emitted by the failed test; the enforced ceiling was one batch plus three details. No second live flow or Trading Platform online query was made. The live mismatch root cause is unverified; the earlier single-key PyYAML live validation remains valid.
 
@@ -45,7 +47,7 @@
 
 ## Git and next action
 
-- The 0.9.0 wheel/sdist are stale relative to hardening #6 source changes. Before a full-project OSV query, diagnose the bounded pilot's `VULN_PROVIDER_BAD_RESPONSE` with metadata-only instrumentation and obtain authorization for another live flow. Phase 10 has not started.
+- The 0.9.0 wheel/sdist are stale relative to source changes. The next narrowly scoped work is to classify oversized advisory lists as incomplete provider coverage while retaining the safety cap and any valid partial results. A full-project OSV query requires separate authorization after correction. Phase 10 has not started.
 
 - Branch `main`; local checkpoints only, no push or release tag. The pre-existing untracked `uv.lock` and Mosaic reports remain outside Git; ignored `dist/` contains local RC build artifacts. Verify the latest checkpoint and working tree with `git log -1` and `git status`.
 - Core roadmap phases 0–9 are implementation milestones. Before external RC validation, rebuild/revalidate the stale 0.9.0 wheel and sdist from the current source. Before any full-project online OSV run, diagnose the bounded pilot's provider response mismatch with metadata-only instrumentation; the request cap alone is insufficient evidence of live correctness. Optional future Phase 10 — Controlled Patch Application — has not started.

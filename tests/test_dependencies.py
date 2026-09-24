@@ -10,6 +10,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -19,7 +20,7 @@ from security_auditor.discovery import DiscoveryPolicy, discover
 from security_auditor.scanners.dependencies import DependencyScanner
 from security_auditor.scanners.dependencies.cache import VulnerabilityCache
 from security_auditor.scanners.dependencies.models import DependencyIdentity, LookupResult, LookupStatus, Vulnerability
-from security_auditor.scanners.dependencies.providers import OSVProvider, ProviderError
+from security_auditor.scanners.dependencies.providers import OSVProvider, ProviderError, OSV_BASE, _transport
 
 
 class FakeProvider:
@@ -403,6 +404,86 @@ class DependencyTests(unittest.TestCase):
         self.assertEqual(len(offline.result.findings), 2)
         self.assertEqual(dict(offline.result.summary.details)["total_requests_used"], 0)
         self.assertEqual(dict(offline.result.summary.details)["cache_hits"], 2)
+
+    def test_ten_result_shapes_and_valid_response_detail_budget(self):
+        self.write("requirements.txt", "".join(f"package{i}==1.0\n" for i in range(10)))
+        for empty in ({}, {"vulns": []}):
+            with self.subTest(empty=empty):
+                self.cache = VulnerabilityCache(self.base / ("cache-missing" if not empty else "cache-empty"))
+                calls = []
+                def transport(method, url, body, limits):
+                    calls.append(method)
+                    if method == "POST":
+                        return {"results": [empty for _ in range(9)] + [
+                            {"vulns": [{"id": f"GHSA-{i}"} for i in range(4)]}]}
+                    return {"id": url.rsplit("/", 1)[-1], "affected": [
+                        {"package": {"ecosystem": "PyPI", "name": "package9"}}]}
+                limits = replace(VulnerabilityLimits(), max_batch_size=10,
+                                 max_total_batch_requests=1, max_total_detail_requests=3,
+                                 max_total_provider_requests=4)
+                outcome = self.outcome(offline=False, provider=OSVProvider(transport), vulnerability=limits)
+                self.assertEqual(calls, ["POST", "GET", "GET", "GET"])
+                self.assertEqual(outcome.result.status, "partial")
+                self.assertEqual(len(outcome.result.findings), 3)
+                self.assertTrue(outcome.lookups[-1].incomplete)
+                codes = {d.code for d in outcome.result.diagnostics}
+                self.assertIn("DEPENDENCY_OSV_DETAIL_BUDGET_REACHED", codes)
+                self.assertNotIn("VULN_PROVIDER_BAD_RESPONSE", codes)
+                self.assertEqual(dict(outcome.result.summary.details)["total_requests_used"], 4)
+
+    def test_bad_response_reason_is_fixed_and_stage_specific(self):
+        self.write("requirements.txt", "idna==3.5\n")
+        for response, reason in (({"results": [None]}, "RESULT_NOT_OBJECT"),
+                                 ({"results": [{"vulns": None}]}, "VULNS_NOT_LIST"),
+                                 ({"results": []}, "RESULT_COUNT_MISMATCH")):
+            with self.subTest(reason=reason):
+                outcome = self.outcome(offline=False, provider=OSVProvider(lambda *args: response))
+                bad = next(d for d in outcome.result.diagnostics if d.code == "VULN_PROVIDER_BAD_RESPONSE")
+                self.assertIn("stage=batch", bad.message)
+                self.assertIn("reason=" + reason, bad.message)
+                self.assertNotIn("idna", bad.message)
+
+    def test_oversized_advisory_list_is_identified_as_batch_limit(self):
+        self.write("requirements.txt", "idna==3.5\n")
+        calls = []
+        def transport(method, url, body, limits):
+            calls.append(method)
+            return {"results": [{"vulns": [{"id": f"GHSA-{i}"} for i in range(101)]}]}
+        outcome = self.outcome(offline=False, provider=OSVProvider(transport))
+        self.assertEqual(calls, ["POST"])
+        bad = next(d for d in outcome.result.diagnostics if d.code == "VULN_PROVIDER_BAD_RESPONSE")
+        self.assertIn("stage=batch; reason=VULNS_LIMIT_EXCEEDED", bad.message)
+        self.assertFalse(outcome.result.findings)
+
+    def test_transport_observer_records_shape_without_values(self):
+        raw = b'{"results":[],"raw_secret":"FAKE_SECRET_VALUE"}'
+        class Response:
+            status = 200
+            class headers:
+                @staticmethod
+                def get_content_type(): return "application/json"
+            def __enter__(self): return self
+            def __exit__(self, *_): return False
+            def read(self, _): return raw
+        class Opener:
+            def open(self, *_args, **_kwargs): return Response()
+        shapes = []
+        with patch("security_auditor.scanners.dependencies.providers.build_opener", return_value=Opener()):
+            value, size = _transport("POST", OSV_BASE + "/querybatch", b"{}", VulnerabilityLimits(), shapes.append)
+        self.assertEqual(size, len(raw))
+        self.assertEqual(value["raw_secret"], "FAKE_SECRET_VALUE")
+        self.assertEqual(shapes[0]["top_level_keys"], ("results",))
+        self.assertEqual(shapes[0]["other_key_count"], 1)
+        self.assertNotIn("FAKE_SECRET_VALUE", repr(shapes))
+
+    def test_unrecognized_provider_reason_is_not_published(self):
+        self.write("requirements.txt", "idna==3.5\n")
+        class Provider:
+            def lookup_batch(self, _keys, _limits):
+                raise ProviderError("VULN_PROVIDER_BAD_RESPONSE", stage="batch", reason="FAKE_SECRET_VALUE")
+        outcome = self.outcome(offline=False, provider=Provider())
+        bad = next(d for d in outcome.result.diagnostics if d.code == "VULN_PROVIDER_BAD_RESPONSE")
+        self.assertNotIn("FAKE_SECRET_VALUE", bad.message)
 
     def test_secret_shaped_filename_is_redacted_in_inventory(self):
         fake_token = "ghp_" + "A" * 36

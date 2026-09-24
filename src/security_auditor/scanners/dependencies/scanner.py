@@ -30,6 +30,17 @@ from .providers import (OSVProvider, ProviderBudgetReached, ProviderError, Provi
 
 
 RULE = RuleReference("DEPENDENCY.KNOWN_VULNERABILITY", "Known vulnerable dependency")
+_SAFE_PROVIDER_REASONS = frozenset({
+    "JSON_DECODE_FAILED", "TOP_LEVEL_NOT_OBJECT", "LOOKUP_SHAPE_INVALID",
+    "LOOKUP_STATUS_INVALID", "INCOMPLETE_NO_MATCH", "LOOKUP_STATUS_MISMATCH",
+    "VULNERABILITY_INVALID", "ADVISORY_ID_INVALID", "SEVERITY_INVALID",
+    "SUMMARY_INVALID", "ALIASES_INVALID", "FIXED_VERSION_INVALID",
+    "REFERENCES_INVALID", "SEVERITY_SOURCE_INVALID", "CVSS_VECTOR_INVALID",
+    "AFFECTED_INVALID", "AFFECTED_PACKAGE_MISMATCH", "RESULTS_MISSING",
+    "RESULTS_NOT_LIST", "RESULT_COUNT_MISMATCH", "RESULT_NOT_OBJECT",
+    "RESULT_PAGINATED", "VULNS_NOT_LIST", "VULNS_LIMIT_EXCEEDED",
+    "VULN_ID_MISSING_OR_INVALID", "DETAIL_ID_MISMATCH", "RESULT_KEY_MISMATCH",
+})
 _MESSAGES = {
     "DEPENDENCY_DISCOVERY_INCOMPLETE": "file discovery was incomplete",
     "DEPENDENCY_PARSE_FAILED": "dependency artifact could not be parsed safely",
@@ -196,13 +207,18 @@ class DependencyScanner:
         considered = scanned = skipped = byte_count = entries = limits_hit = parse_failures = 0
         state = "complete"
 
-        def note(code: str) -> None:
+        def note(code: str, *, provider_error: ProviderError | None = None) -> None:
             nonlocal state
             if code not in _MESSAGES:
                 code = "DEPENDENCY_PARSE_FAILED"
             if code not in seen_codes:
                 seen_codes.add(code)
-                diagnostics.append(ScannerDiagnostic(code, _MESSAGES[code]))
+                message = _MESSAGES[code]
+                if (code == "VULN_PROVIDER_BAD_RESPONSE" and provider_error is not None
+                        and provider_error.stage in {"batch", "detail", "normalization", "validation"}
+                        and provider_error.reason in _SAFE_PROVIDER_REASONS):
+                    message += f" (stage={provider_error.stage}; reason={provider_error.reason})"
+                diagnostics.append(ScannerDiagnostic(code, message))
             if state == "complete": state = "partial"
 
         if discovery_state is not ScanCompleteness.COMPLETE:
@@ -338,14 +354,18 @@ class DependencyScanner:
                         results = self.provider.lookup_batch(batch, batch_limits, provider_state)
                     else:
                         results = self.provider.lookup_batch(batch, batch_limits)
-                    if len(results) != len(batch) or tuple(result.key for result in results) != tuple(batch):
-                        raise ProviderError("VULN_PROVIDER_BAD_RESPONSE")
+                    if len(results) != len(batch):
+                        raise ProviderError("VULN_PROVIDER_BAD_RESPONSE", stage="validation",
+                                            reason="RESULT_COUNT_MISMATCH")
+                    if tuple(result.key for result in results) != tuple(batch):
+                        raise ProviderError("VULN_PROVIDER_BAD_RESPONSE", stage="validation",
+                                            reason="RESULT_KEY_MISMATCH")
                     for result in results:
                         validate_lookup(result, self.vulnerability)
                 except ProviderBudgetReached:
                     break
                 except ProviderError as error:
-                    note(str(error)); note("DEPENDENCY_PROVIDER_FAILED")
+                    note(str(error), provider_error=error); note("DEPENDENCY_PROVIDER_FAILED")
                     provider_failures += len(batch)
                     results = tuple(LookupResult(key, LookupStatus.QUERY_FAILED) for key in batch)
                 except (OSError, ValueError, TypeError):
