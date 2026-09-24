@@ -147,6 +147,24 @@ class SecretScannerTests(unittest.TestCase):
         self.assertEqual(long_line.status, "partial")
         self.assertIn("SECRET_LINE_TOO_LONG", {d.code for d in long_line.diagnostics})
 
+    def test_oversize_diagnostic_has_redacted_relative_path_without_content(self):
+        marker = "SYNTHETIC_OVERSIZED_CONTENT_MARKER"
+        self.write("logs/big.log", (marker + "\n") * 4)
+        result = self.scan(replace(SecretLimits(), max_file_bytes=8))
+        diagnostic = next(d for d in result.diagnostics if d.code == "SECRET_FILE_TOO_LARGE")
+        self.assertEqual(diagnostic.path, "logs/big.log")
+        self.assertEqual(result.status, "partial")
+        self.assertNotIn(str(self.root), repr(result))
+        self.assertNotIn(marker, repr(result))
+
+        fake_token = "ghp_" + ("A1b2C3d4" * 5)[:36]
+        self.write(f"logs/0-{fake_token}.log", "SAFE SYNTHETIC DATA\n")
+        redacted = self.scan(replace(SecretLimits(), max_file_bytes=8))
+        serialized = json.dumps(asdict(redacted), default=str)
+        self.assertNotIn(fake_token, serialized)
+        self.assertTrue(any(d.code == "SECRET_FILE_TOO_LARGE" and "[REDACTED]" in (d.path or "")
+                            for d in redacted.diagnostics))
+
     def test_utf16_and_changed_admitted_file(self):
         raw = "A9x7KpQ2vR8mZ1wL5n6B4c3D2"
         self.write("utf16.env", b"\xff\xfe" + f"CLIENT_SECRET={raw}\n".encode("utf-16-le"))

@@ -21,7 +21,7 @@ from security_auditor.discovery.content import ArtifactReadError, read_admitted_
 from security_auditor.discovery.models import DiscoveryResult, ScanCompleteness
 from security_auditor.scanners._common import safe_finding_path
 from .cache import CacheError, VulnerabilityCache
-from .models import (DependencyInventory, DependencyRecord, Directness, ECOSYSTEMS,
+from .models import (DependencyIdentity, DependencyInventory, DependencyRecord, Directness, ECOSYSTEMS,
                      LookupResult, LookupStatus, VersionKind, Vulnerability, reconcile)
 from .parsers import parse_npm, parse_python, parse_rust_go
 from .parsers.common import ParseError, ParseResult
@@ -186,6 +186,7 @@ class DependencyScanner:
         diagnostics: list[ScannerDiagnostic] = []
         seen_codes = set()
         records: list[DependencyRecord] = []
+        root_project_name: str | None = None
         parsed: set[tuple[str, bool]] = set()
         processing: set[str] = set()
         considered = scanned = skipped = byte_count = entries = limits_hit = parse_failures = 0
@@ -206,7 +207,7 @@ class DependencyScanner:
 
         def parse_one(path: str, depth: int, constraint_only: bool = False,
                       included_text: bool = False) -> None:
-            nonlocal scanned, skipped, byte_count, entries, limits_hit, parse_failures, state
+            nonlocal scanned, skipped, byte_count, entries, limits_hit, parse_failures, state, root_project_name
             if path in processing or depth > self.limits.max_include_depth:
                 note("DEPENDENCY_INCLUDE_LOOP"); skipped += 1; return
             if (path, constraint_only) in parsed: return
@@ -234,6 +235,8 @@ class DependencyScanner:
             finally:
                 del data
             scanned += 1
+            if path == "pyproject.toml" and not constraint_only and not included_text:
+                root_project_name = parsed_file.project_name
             for code in parsed_file.diagnostics: note(code)
             entries += len(parsed_file.records)
             if entries > self.limits.max_entries or len(records) + len(parsed_file.records) > self.limits.max_dependencies:
@@ -263,7 +266,21 @@ class DependencyScanner:
             parse_one(artifact.path, 0)
             if state == "aborted": break
         inventory_records = reconcile(records)
-        if any(r.key is None for r in inventory_records):
+        root_lock_entries = [r for r in records if r.source_path == "uv.lock"
+                             and r.ecosystem == "PyPI" and r.name == root_project_name]
+        if root_project_name is not None and len(root_lock_entries) == 1:
+            # Only the admitted scan-root manifest and lockfile can prove this identity.
+            # Exact `editable="."` is lexical root metadata; no path is opened or followed.
+            # Conflicting same-name lock entries leave coverage conservatively unresolved.
+            inventory_records = tuple(
+                replace(r, identity=DependencyIdentity.FIRST_PARTY_ROOT,
+                        source_paths=("pyproject.toml", "uv.lock"))
+                if (r.source_path == "uv.lock" and r.root_editable_candidate
+                    and r.version_kind is VersionKind.LOCAL_PATH and r.name == root_project_name)
+                else r for r in inventory_records
+            )
+        if any(r.key is None and r.identity is not DependencyIdentity.FIRST_PARTY_ROOT
+               for r in inventory_records):
             note("DEPENDENCY_UNRESOLVED_VERSION")
         inventory = DependencyInventory(inventory_records, tuple(d.code for d in diagnostics), state == "complete")
 
@@ -361,7 +378,10 @@ class DependencyScanner:
             ("dependency_artifacts_considered", considered), ("files_parsed", scanned),
             ("parse_failures", parse_failures), ("dependencies_discovered", len(inventory_records)),
             ("exact_dependencies", sum(r.key is not None for r in inventory_records)),
-            ("unresolved_dependencies", sum(r.key is None for r in inventory_records)),
+            ("first_party_roots", sum(r.identity is DependencyIdentity.FIRST_PARTY_ROOT
+                                      for r in inventory_records)),
+            ("unresolved_dependencies", sum(r.key is None and r.identity is not DependencyIdentity.FIRST_PARTY_ROOT
+                                            for r in inventory_records)),
             ("unique_package_versions", len(keys)), ("cache_hits", cache_hits),
             ("stale_cache_hits", stale_hits), ("provider_queries", provider_queries),
             ("provider_failures", provider_failures), ("vulnerability_matches", len(findings)),

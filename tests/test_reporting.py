@@ -19,6 +19,7 @@ from security_auditor.ai.providers import ProviderResponse
 from security_auditor.cli.main import main
 from security_auditor.core.config import AuditConfig, DiscoveryLimits, VulnerabilityLimits
 from security_auditor.core.models import Location, ScanProfile
+from security_auditor.gate.service import GateStatus, evaluate_gate
 from security_auditor.orchestrator import ScanOrchestrator, ScanRequest
 from security_auditor.reporting import console, html, json_report, sarif
 from security_auditor.reporting.models import CoverageStatus, ReportDiagnostic
@@ -168,6 +169,41 @@ class ReportTests(unittest.TestCase):
         self.assertIn("src/synthetic.py</code>：<code>SAST_AST_DEPTH_LIMIT_REACHED", rendered)
         self.assertIn("Python AST 深度已達安全分析上限。", rendered)
         self.assertNotIn(str(self.root), rendered)
+
+    def test_root_identity_and_oversize_path_survive_public_reports(self):
+        (self.root / "pyproject.toml").write_text('[project]\nname="demo"\n', encoding="utf-8")
+        (self.root / "uv.lock").write_text(
+            '[[package]]\nname="demo"\nversion="0.1.0"\nsource={editable="."}\n', encoding="utf-8")
+        (self.root / "logs").mkdir()
+        (self.root / "logs" / "big.log").write_bytes(b"SYNTHETIC DATA\n" * 75000)
+        report = self.report(config=replace(AuditConfig(), vulnerability=VulnerabilityLimits(cache_enabled=False)))
+        view = json.loads(json_report.render(report))
+        dependency = view["summary"]["dependency"]
+        self.assertEqual(dependency["first_party_roots"], 1)
+        self.assertEqual(dependency["unresolved_third_party"], 0)
+        self.assertGreater(dependency["no_data"], 0)
+        self.assertNotIn("DEPENDENCY_UNRESOLVED_VERSION", view["coverage"]["reasons"])
+        oversized = next(d for d in view["diagnostics"] if d["code"] == "SECRET_FILE_TOO_LARGE")
+        self.assertEqual(oversized["path"], "logs/big.log")
+        self.assertNotIn(str(self.root), json.dumps(oversized))
+        rendered = html.render(report)
+        self.assertIn("logs/big.log", rendered)
+        self.assertIn("第一方專案根套件：1", rendered)
+        self.assertIn("未解析的第三方依賴：0", rendered)
+        self.assertNotIn(str(self.root), rendered)
+        self.assertEqual(evaluate_gate(view).status, GateStatus.BLOCK)
+
+    def test_oversize_secret_shaped_filename_is_redacted_in_public_reports(self):
+        fake_token = "ghp_" + ("A1b2C3d4" * 5)[:36]
+        (self.root / f"0-{fake_token}.log").write_bytes(b"SYNTHETIC DATA\n" * 75000)
+        report = self.report()
+        json_text = json_report.render(report)
+        html_text = html.render(report)
+        self.assertNotIn(fake_token, json_text)
+        self.assertNotIn(fake_token, html_text)
+        diagnostic = next(d for d in json.loads(json_text)["diagnostics"]
+                          if d["code"] == "SECRET_FILE_TOO_LARGE")
+        self.assertIn("[REDACTED]", diagnostic["path"])
 
     def test_last_output_boundary_drops_raw_snippet_and_redacts_key(self):
         report = self.report()

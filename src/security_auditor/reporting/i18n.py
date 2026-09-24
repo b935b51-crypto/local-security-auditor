@@ -30,6 +30,8 @@ MESSAGES = {
     "dependencies": "依賴套件漏洞",
     "packages": "套件數",
     "exact_versions": "確切版本",
+    "first_party_roots": "第一方專案根套件",
+    "unresolved_third_party": "未解析的第三方依賴",
     "no_data": "無漏洞資料",
     "matches": "漏洞命中",
     "ai": "AI 輔助審查",

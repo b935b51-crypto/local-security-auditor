@@ -11,6 +11,7 @@ from typing import Sequence
 
 from security_auditor import __version__ as TOOL_VERSION
 from security_auditor.core.config import SecretLimits
+from security_auditor.core.redaction import safe_finding_path
 from security_auditor.core.models import (
     ArtifactKind, Confidence, ContentKind, Evidence, FileArtifact, Finding,
     Location, Remediation, RuleReference, ScanSession, ScannerDiagnostic,
@@ -101,10 +102,13 @@ class SecretScanner:
         diagnostics: list[ScannerDiagnostic] = []
         diagnosed: set[str] = set()
 
-        def note(code: str) -> None:
+        def note(code: str, artifact: FileArtifact | None = None) -> None:
             if code not in diagnosed:
                 diagnosed.add(code)
-                diagnostics.append(self._diagnostic(code))
+                diagnostics.append(ScannerDiagnostic(
+                    code, _DIAGNOSTIC_TEXT[code],
+                    safe_finding_path(artifact.path) if artifact is not None else None,
+                ))
 
         considered = scanned = skipped = byte_count = match_count = placeholders = duplicates = limits_hit = 0
         state = "complete"
@@ -123,7 +127,7 @@ class SecretScanner:
                 skipped += 1
                 continue
             if artifact.size_bytes > self.limits.max_file_bytes:
-                note("SECRET_FILE_TOO_LARGE")
+                note("SECRET_FILE_TOO_LARGE", artifact)
                 state = "partial" if state == "complete" else state
                 skipped += 1
                 limits_hit += 1
@@ -136,7 +140,7 @@ class SecretScanner:
             try:
                 data = read_admitted_artifact(root, artifact, max_bytes=self.limits.max_file_bytes)
             except ArtifactReadError:
-                note("SECRET_READ_FAILED")
+                note("SECRET_READ_FAILED", artifact)
                 state = "partial" if state == "complete" else state
                 skipped += 1
                 continue
@@ -144,7 +148,7 @@ class SecretScanner:
             try:
                 source = data.decode(artifact.encoding or "utf-8", errors="strict")
             except (UnicodeError, LookupError):
-                note("SECRET_DECODE_UNAVAILABLE")
+                note("SECRET_DECODE_UNAVAILABLE", artifact)
                 state = "partial" if state == "complete" else state
                 skipped += 1
                 continue
@@ -164,7 +168,7 @@ class SecretScanner:
                     file_limited = True
                     break
                 if len(line.encode(artifact.encoding or "utf-8")) > self.limits.max_line_bytes:
-                    note("SECRET_LINE_TOO_LONG")
+                    note("SECRET_LINE_TOO_LONG", artifact)
                     state = "partial" if state == "complete" else state
                     limits_hit += 1
                     continue

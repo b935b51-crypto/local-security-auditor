@@ -217,6 +217,9 @@ def validate_report(report: Any) -> None:
     dependency = _object(summary["dependency"], "no_data", "matches", "exact_versions")
     for key in ("no_data", "matches", "exact_versions"):
         _count(dependency[key])
+    for key in ("first_party_roots", "unresolved_third_party"):
+        if key in dependency:
+            _count(dependency[key])
     findings = _array(root["findings"], MAX_FINDINGS)
     discovery = _object(root.get("discovery"), "admitted_files")
     _count(discovery["admitted_files"])

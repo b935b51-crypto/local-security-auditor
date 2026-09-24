@@ -172,6 +172,8 @@ def report_view(report: ScanReport) -> dict:
                                 "ai_verdict": dict(report.counts.ai_verdict)},
                     "dependency": {"packages": report.dependency.packages,
                                    "exact_versions": report.dependency.exact_versions,
+                                   "first_party_roots": report.dependency.first_party_roots,
+                                   "unresolved_third_party": report.dependency.unresolved_third_party,
                                    "queries": report.dependency.queries,
                                    "cache_hits": report.dependency.cache_hits,
                                    "no_data": report.dependency.no_data,

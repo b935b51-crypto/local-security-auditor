@@ -111,6 +111,8 @@ def render(report: ScanReport) -> str:
     out.append(f"</section><section><h2>{_m('dependencies')}</h2>"
                f"<p>{_m('packages')}：{_e(dependency['packages'])}；"
                f"{_m('exact_versions')}：{_e(dependency['exact_versions'])}；"
+               f"{_m('first_party_roots')}：{_e(dependency['first_party_roots'])}；"
+               f"{_m('unresolved_third_party')}：{_e(dependency['unresolved_third_party'])}；"
                f"{_m('no_data')}：{_e(dependency['no_data'])}；"
                f"{_m('matches')}：{_e(dependency['matches'])}</p></section>")
     out.append(f"<section><h2>{_m('ai')}</h2><p>{_m('status')}：{_v(data['summary']['ai_status'])}；"

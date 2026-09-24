@@ -6,7 +6,7 @@ import json
 import re
 import tomllib
 
-from security_auditor.scanners.dependencies.models import DependencyGroup as G, Directness as D, VersionKind as V
+from security_auditor.scanners.dependencies.models import DependencyGroup as G, Directness as D, VersionKind as V, normalize_name
 from .common import IncludeRef, ParseError, ParseResult, append_record, record, version_kind
 
 
@@ -80,10 +80,13 @@ def parse_python(name: str, path: str, data: bytes) -> ParseResult:
         return ParseResult(tuple(records), tuple(includes), tuple(diagnostics))
     if lower in {"pyproject.toml", "pipfile", "uv.lock", "poetry.lock"}:
         obj = _toml(data)
+        project_name = None
         if lower == "pyproject.toml":
             project = obj.get("project", {})
             if not isinstance(project, dict):
                 raise ParseError("DEPENDENCY_PARSE_FAILED")
+            if isinstance(project.get("name"), str):
+                project_name = normalize_name("PyPI", project["name"])
             for value in project.get("dependencies", []):
                 if not isinstance(value, str):
                     diagnostics.append("DEPENDENCY_PARSE_FAILED"); continue
@@ -149,10 +152,13 @@ def parse_python(name: str, path: str, data: bytes) -> ParseResult:
                 kind = (V.VCS if nonregistry and ("git" in source or source_type == "git") else
                         V.LOCAL_PATH if nonregistry and ("path" in source or "editable" in source or source_type in {"directory", "file"}) else
                         V.URL if nonregistry else V.EXACT)
+                root_candidate = (lower == "uv.lock" and isinstance(source, dict)
+                                  and len(source) == 1 and source.get("editable") == ".")
                 item = record("PyPI", name, ver if kind is V.EXACT else None, kind, D.UNKNOWN, G.UNKNOWN,
-                              path, source="registry" if kind is V.EXACT else kind.value, resolved=kind is V.EXACT)
+                              path, source="registry" if kind is V.EXACT else kind.value, resolved=kind is V.EXACT,
+                              root_editable_candidate=root_candidate and kind is V.LOCAL_PATH)
                 append_record(records, diagnostics, item)
-        return ParseResult(tuple(records), (), tuple(diagnostics))
+        return ParseResult(tuple(records), (), tuple(diagnostics), project_name)
     if lower == "pipfile.lock":
         try: obj = json.loads(data)
         except (ValueError, UnicodeError): raise ParseError("DEPENDENCY_PARSE_FAILED") from None

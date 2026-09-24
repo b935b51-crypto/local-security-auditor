@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from security_auditor.scanners.dependencies.models import (
-    DependencyGroup, DependencyRecord, Directness, VersionKind,
+    DependencyGroup, DependencyIdentity, DependencyRecord, Directness, VersionKind,
     normalize_name, safe_exact_version,
 )
 from security_auditor.scanners._common import safe_finding_path
@@ -20,6 +20,7 @@ class ParseResult:
     records: tuple[DependencyRecord, ...] = ()
     includes: tuple[IncludeRef, ...] = ()
     diagnostics: tuple[str, ...] = ()
+    project_name: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,7 +32,8 @@ class IncludeRef:
 def record(ecosystem: str, name: str, version: str | None, kind: VersionKind,
            direct: Directness, group: DependencyGroup, path: str, *, line: int | None = None,
            constraint: str | None = None, source: str = "registry",
-           logical_path: str = "", resolved: bool = False) -> DependencyRecord | None:
+           logical_path: str = "", resolved: bool = False,
+           root_editable_candidate: bool = False) -> DependencyRecord | None:
     normalized = normalize_name(ecosystem, name)
     if normalized is None or (version is not None and (len(version) > 100 or any(ord(c) < 32 for c in version))):
         return None
@@ -44,8 +46,15 @@ def record(ecosystem: str, name: str, version: str | None, kind: VersionKind,
              safe_finding_path(constraint) != constraint or
              not all(c.isalnum() or c in "<>=!~^*|.,+ -_" for c in constraint)))):
         constraint = None
+    identity = {
+        VersionKind.LOCAL_PATH: DependencyIdentity.LOCAL_PATH,
+        VersionKind.VCS: DependencyIdentity.VCS,
+        VersionKind.URL: DependencyIdentity.URL,
+        VersionKind.UNRESOLVED: DependencyIdentity.UNRESOLVED,
+    }.get(kind, DependencyIdentity.REGISTRY)
     return DependencyRecord(ecosystem, normalized, version, kind, direct, group, safe_finding_path(path),
-                            line, constraint, source, safe_finding_path(logical_path), (), resolved)
+                            line, constraint, source, safe_finding_path(logical_path), (), resolved,
+                            identity, root_editable_candidate)
 
 
 def append_record(records: list[DependencyRecord], diagnostics: list[str], item: DependencyRecord | None) -> None:

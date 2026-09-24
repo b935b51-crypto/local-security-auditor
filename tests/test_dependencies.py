@@ -18,7 +18,7 @@ from security_auditor.core.models import ScanProfile, ScanSession, ScanTarget, S
 from security_auditor.discovery import DiscoveryPolicy, discover
 from security_auditor.scanners.dependencies import DependencyScanner
 from security_auditor.scanners.dependencies.cache import VulnerabilityCache
-from security_auditor.scanners.dependencies.models import LookupResult, LookupStatus, Vulnerability
+from security_auditor.scanners.dependencies.models import DependencyIdentity, LookupResult, LookupStatus, Vulnerability
 from security_auditor.scanners.dependencies.providers import OSVProvider, ProviderError
 
 
@@ -206,6 +206,72 @@ class DependencyTests(unittest.TestCase):
         self.assertIn("DEPENDENCY_INCLUDE_LOOP", {d.code for d in result.result.diagnostics})
         self.assertIn("DEPENDENCY_UNRESOLVED_VERSION", {d.code for d in result.result.diagnostics})
         self.assertEqual({r.version_kind.value for r in result.inventory.records}, {"vcs", "local_path"})
+
+    def test_admitted_manifest_and_exact_root_editable_identity(self):
+        self.write("pyproject.toml", '[project]\nname="Demo.Project"\nversion="0.1.0"\n')
+        self.write("uv.lock", '[[package]]\nname="demo-project"\nversion="0.1.0"\nsource={editable="."}\n')
+        provider = FakeProvider()
+        outcome = self.outcome(offline=False, provider=provider)
+        self.assertEqual(provider.calls, [])
+        self.assertEqual(len(outcome.inventory.records), 1)
+        root = outcome.inventory.records[0]
+        self.assertEqual(root.identity, DependencyIdentity.FIRST_PARTY_ROOT)
+        self.assertEqual(root.source_paths, ("pyproject.toml", "uv.lock"))
+        self.assertIsNone(root.key)
+        self.assertEqual(dict(outcome.result.summary.details)["first_party_roots"], 1)
+        self.assertEqual(dict(outcome.result.summary.details)["unresolved_dependencies"], 0)
+        self.assertNotIn("DEPENDENCY_UNRESOLVED_VERSION", {d.code for d in outcome.result.diagnostics})
+        self.assertEqual(outcome.result.status, "completed")
+
+    def test_matching_name_without_root_evidence_is_not_first_party(self):
+        self.write("pyproject.toml", '[project]\nname="demo"\n')
+        self.write("uv.lock", '[[package]]\nname="demo"\nversion="1.2.3"\nsource={registry="https://pypi.org/simple"}\n')
+        provider = FakeProvider()
+        outcome = self.outcome(offline=False, provider=provider)
+        self.assertEqual(outcome.inventory.records[0].identity, DependencyIdentity.REGISTRY)
+        self.assertEqual(provider.calls, [(('PyPI', 'demo', '1.2.3'),)])
+        self.assertEqual(dict(outcome.result.summary.details)["first_party_roots"], 0)
+
+    def test_root_editable_without_manifest_or_with_conflicting_entry_is_unresolved(self):
+        self.write("uv.lock", '[[package]]\nname="demo"\nversion="0.1.0"\nsource={editable="."}\n')
+        absent = self.outcome(offline=False, provider=FakeProvider())
+        self.assertEqual(absent.inventory.records[0].identity, DependencyIdentity.LOCAL_PATH)
+        self.assertIn("DEPENDENCY_UNRESOLVED_VERSION", {d.code for d in absent.result.diagnostics})
+
+        self.write("pyproject.toml", '[project]\nname="demo"\n')
+        self.write("uv.lock", '[[package]]\nname="demo"\nversion="0.1.0"\nsource={editable="."}\n'
+                              '[[package]]\nname="demo"\nversion="0.1.0"\nsource={path="../outside"}\n')
+        conflicting = self.outcome(offline=False, provider=FakeProvider())
+        self.assertTrue(all(r.identity is not DependencyIdentity.FIRST_PARTY_ROOT
+                            for r in conflicting.inventory.records))
+        self.assertIn("DEPENDENCY_UNRESOLVED_VERSION", {d.code for d in conflicting.result.diagnostics})
+
+    def test_editable_outside_root_and_sibling_remain_unresolved(self):
+        self.write("pyproject.toml", '[project]\nname="demo"\n')
+        for source in ('{editable="../outside"}', '{editable="../../outside"}', '{path="../shared"}'):
+            with self.subTest(source=source):
+                self.write("uv.lock", '[[package]]\nname="demo"\nversion="0.1.0"\nsource=' + source + '\n')
+                outcome = self.outcome(offline=False, provider=FakeProvider())
+                self.assertEqual(outcome.inventory.records[0].identity, DependencyIdentity.LOCAL_PATH)
+                self.assertEqual(outcome.inventory.exact_keys(), ())
+                self.assertIn("DEPENDENCY_UNRESOLVED_VERSION", {d.code for d in outcome.result.diagnostics})
+                self.assertEqual(dict(outcome.result.summary.details)["first_party_roots"], 0)
+                self.assertEqual(outcome.result.status, "partial")
+
+    def test_root_does_not_hide_offline_registry_no_cache(self):
+        self.write("pyproject.toml", '[project]\nname="demo"\n')
+        self.write("uv.lock", '[[package]]\nname="demo"\nversion="0.1.0"\nsource={editable="."}\n'
+                              '[[package]]\nname="idna"\nversion="3.5"\nsource={registry="https://pypi.org/simple"}\n')
+        provider = FakeProvider()
+        outcome = self.outcome(provider=provider)
+        self.assertEqual(provider.calls, [])
+        self.assertEqual(len(outcome.inventory.records), 2)
+        self.assertEqual(dict(outcome.result.summary.details)["first_party_roots"], 1)
+        self.assertEqual(dict(outcome.result.summary.details)["unresolved_dependencies"], 0)
+        self.assertEqual(outcome.lookups[0].status, LookupStatus.OFFLINE_NO_CACHE)
+        self.assertNotIn("DEPENDENCY_UNRESOLVED_VERSION", {d.code for d in outcome.result.diagnostics})
+        self.assertIn("DEPENDENCY_PROVIDER_NO_DATA", {d.code for d in outcome.result.diagnostics})
+        self.assertEqual(outcome.result.status, "partial")
 
     def test_bad_provider_result_and_response_budget_fail_closed(self):
         self.write("requirements.txt", "idna==3.5\n")

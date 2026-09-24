@@ -19,6 +19,15 @@ class VersionKind(StrEnum):
     URL = "url"
 
 
+class DependencyIdentity(StrEnum):
+    REGISTRY = "REGISTRY"
+    FIRST_PARTY_ROOT = "FIRST_PARTY_ROOT"
+    LOCAL_PATH = "LOCAL_PATH"
+    VCS = "VCS"
+    URL = "URL"
+    UNRESOLVED = "UNRESOLVED"
+
+
 class Directness(StrEnum):
     DIRECT = "direct"
     TRANSITIVE = "transitive"
@@ -84,10 +93,13 @@ class DependencyRecord:
     logical_path: str = ""
     source_paths: tuple[str, ...] = ()
     resolved: bool = False
+    identity: DependencyIdentity = DependencyIdentity.REGISTRY
+    root_editable_candidate: bool = False
 
     @property
     def key(self) -> tuple[str, str, str] | None:
-        if self.version_kind is VersionKind.EXACT and self.version and self.package_source == "registry":
+        if (self.identity is DependencyIdentity.REGISTRY and self.version_kind is VersionKind.EXACT
+                and self.version and self.package_source == "registry"):
             return (self.ecosystem, self.name, self.version)
         return None
 

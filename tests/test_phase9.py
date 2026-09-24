@@ -83,6 +83,16 @@ class Phase9Tests(unittest.TestCase):
         self.assertEqual(evaluate_gate(view, SecurityGatePolicy(dependency_no_data=GateStatus.BLOCK)).status,
                          GateStatus.BLOCK)
 
+    def test_additive_dependency_identity_counts_are_backward_compatible_and_validated(self) -> None:
+        view = self.scan()
+        dependency = view["summary"]["dependency"]
+        dependency.pop("first_party_roots")
+        dependency.pop("unresolved_third_party")
+        evaluate_gate(view)  # Existing JSON 1.1 reports remain readable.
+        dependency["first_party_roots"] = -1
+        with self.assertRaises(GateReportError):
+            evaluate_gate(view)
+
     def test_medium_sast_warns_and_high_exact_dependency_blocks(self) -> None:
         view = self.scan("import os\nvalue = input()\nos.system(value)\n")
         sast = next(f for f in view["findings"] if f["scanner_id"].startswith("sast"))

@@ -80,6 +80,8 @@ class DependencySummary:
     cache_hits: int = 0
     no_data: int = 0
     matches: int = 0
+    first_party_roots: int = 0
+    unresolved_third_party: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -234,7 +236,9 @@ def assemble_report(session: ScanSession, discovery: DiscoveryResult,
                                     metrics.get("provider_queries", 0), metrics.get("cache_hits", 0),
                                     sum(l.status in {LookupStatus.NO_DATA, LookupStatus.OFFLINE_NO_CACHE,
                                                      LookupStatus.QUERY_FAILED} for l in lookups),
-                                    metrics.get("vulnerability_matches", 0))
+                                    metrics.get("vulnerability_matches", 0),
+                                    metrics.get("first_party_roots", 0),
+                                    metrics.get("unresolved_dependencies", 0))
     return ScanReport(SCHEMA_VERSION, "Local Security Auditor", __version__, session.id,
                       started_at, completed_at, max(0.0, duration_seconds),
                       session.target.display_name, session.profile.value, session.offline,
