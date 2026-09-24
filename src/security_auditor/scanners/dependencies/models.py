@@ -136,6 +136,7 @@ class LookupResult:
     vulnerabilities: tuple[Vulnerability, ...] = ()
     stale: bool = False
     diagnostic: str | None = None
+    incomplete: bool = False
 
 
 def reconcile(records: list[DependencyRecord]) -> tuple[DependencyRecord, ...]:

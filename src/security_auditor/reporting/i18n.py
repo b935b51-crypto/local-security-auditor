@@ -3,6 +3,10 @@
 HTML_LOCALE = "zh-TW"
 
 MESSAGES = {
+    "osv_requests": "OSV 請求",
+    "osv_batch": "批次",
+    "osv_detail": "漏洞詳情",
+    "osv_budget_warning": "OSV 查詢已達本次掃描的安全請求上限，已保留目前取得的漏洞資料；尚未查詢的依賴套件不視為無已知漏洞。",
     "scope": "掃描範圍與排除項目",
     "excluded_directories": "排除的目錄",
     "excluded_files": "排除的檔案",
@@ -100,6 +104,9 @@ VALUES = {
 }
 
 DIAGNOSTICS = {
+    "DEPENDENCY_OSV_BATCH_BUDGET_REACHED": "OSV 批次查詢已達本次掃描的安全上限。",
+    "DEPENDENCY_OSV_DETAIL_BUDGET_REACHED": "OSV 漏洞詳情查詢已達本次掃描的安全上限。",
+    "DEPENDENCY_OSV_TOTAL_REQUEST_BUDGET_REACHED": "OSV 請求總數已達本次掃描的安全上限。",
     "SAST_AST_NODE_LIMIT_REACHED": "Python AST 節點數已達安全分析上限。",
     "SAST_AST_DEPTH_LIMIT_REACHED": "Python AST 深度已達安全分析上限。",
     "BEHAVIOR_AST_NODE_LIMIT_REACHED": "Python AST 節點數已達危險行為分析的安全上限。",

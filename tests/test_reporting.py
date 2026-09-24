@@ -26,6 +26,7 @@ from security_auditor.reporting.models import CoverageStatus, ReportDiagnostic
 from security_auditor.reporting.models import assemble_report
 from security_auditor.reporting.output import ReportOutputError, write_text
 from security_auditor.scanners.dependencies.models import LookupResult, LookupStatus, Vulnerability
+from security_auditor.scanners.dependencies.providers import OSVProvider
 
 
 class FakeOSV:
@@ -192,6 +193,32 @@ class ReportTests(unittest.TestCase):
         self.assertIn("未解析的第三方依賴：0", rendered)
         self.assertNotIn(str(self.root), rendered)
         self.assertEqual(evaluate_gate(view).status, GateStatus.BLOCK)
+
+    def test_osv_budget_is_public_partial_and_blocks_gate(self):
+        isolated = self.root.parent / "budget-target"
+        isolated.mkdir()
+        (isolated / "requirements.txt").write_text("alpha==1.0\nbeta==1.0\n", encoding="utf-8")
+        calls = []
+        def transport(method, url, body, limits):
+            calls.append(method)
+            return {"results": [{"vulns": []} for _ in json.loads(body)["queries"]]}
+        limits = replace(VulnerabilityLimits(cache_enabled=False), max_batch_size=1,
+                         max_total_batch_requests=1)
+        report = ScanOrchestrator(dependency_provider=OSVProvider(transport)).run_scan(
+            ScanRequest(isolated, replace(AuditConfig(), vulnerability=limits),
+                        ScanProfile.STANDARD, False, False))
+        view = json.loads(json_report.render(report))
+        dep = view["summary"]["dependency"]
+        self.assertEqual(calls, ["POST"])
+        self.assertEqual(view["coverage"]["overall"], "PARTIAL")
+        self.assertEqual((dep["batch_requests_used"], dep["detail_requests_used"],
+                          dep["total_requests_used"]), (1, 0, 1))
+        self.assertTrue(dep["provider_budget_reached"])
+        self.assertGreater(dep["no_data"], 0)
+        self.assertEqual(evaluate_gate(view).status, GateStatus.BLOCK)
+        rendered = html.render(report)
+        self.assertIn("OSV 查詢已達本次掃描的安全請求上限", rendered)
+        self.assertIn("OSV requests: 1 batch / 0 detail", console.render(report))
 
     def test_oversize_secret_shaped_filename_is_redacted_in_public_reports(self):
         fake_token = "ghp_" + ("A1b2C3d4" * 5)[:36]

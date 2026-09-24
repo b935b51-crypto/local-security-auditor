@@ -338,6 +338,72 @@ class DependencyTests(unittest.TestCase):
         self.assertEqual(online.lookups[0].status, LookupStatus.NO_MATCH)
         self.assertEqual(online.result.status, "completed")
 
+    def test_global_batch_budget_leaves_unqueried_as_no_data(self):
+        self.write("requirements.txt", "alpha==1.0\nbeta==1.0\ngamma==1.0\n")
+        calls = []
+        def transport(method, url, body, limits):
+            calls.append(method)
+            return {"results": [{"vulns": []} for _ in json.loads(body)["queries"]]}
+        limits = replace(VulnerabilityLimits(), max_batch_size=1, max_total_batch_requests=1)
+        outcome = self.outcome(offline=False, provider=OSVProvider(transport), vulnerability=limits)
+        self.assertEqual(calls, ["POST"])
+        self.assertEqual([x.status for x in outcome.lookups],
+                         [LookupStatus.NO_MATCH, LookupStatus.NO_DATA, LookupStatus.NO_DATA])
+        self.assertEqual(outcome.result.status, "partial")
+        self.assertIn("DEPENDENCY_OSV_BATCH_BUDGET_REACHED", {d.code for d in outcome.result.diagnostics})
+        stats = dict(outcome.result.summary.details)
+        self.assertEqual((stats["batch_requests_used"], stats["detail_requests_used"],
+                          stats["total_requests_used"]), (1, 0, 1))
+
+    def test_global_detail_and_total_budget_preserve_partial_finding(self):
+        self.write("requirements.txt", "idna==3.5\n")
+        calls = []
+        def transport(method, url, body, limits):
+            calls.append(method)
+            if method == "POST":
+                return {"results": [{"vulns": [{"id": "GHSA-a"}, {"id": "GHSA-b"}]}]}
+            return {"id": url.rsplit("/", 1)[-1], "affected": [
+                {"package": {"ecosystem": "PyPI", "name": "idna"}}]}
+        for field, code in (("max_total_detail_requests", "DEPENDENCY_OSV_DETAIL_BUDGET_REACHED"),
+                            ("max_total_provider_requests", "DEPENDENCY_OSV_TOTAL_REQUEST_BUDGET_REACHED")):
+            with self.subTest(field=field):
+                calls.clear()
+                limits = replace(VulnerabilityLimits(), **{field: 2 if field.endswith("provider_requests") else 1})
+                outcome = self.outcome(offline=False, provider=OSVProvider(transport), vulnerability=limits)
+                self.assertEqual(calls, ["POST", "GET"])
+                self.assertEqual(outcome.result.status, "partial")
+                self.assertIn(code, {d.code for d in outcome.result.diagnostics})
+                self.assertEqual([f.vulnerability.advisory_id for f in outcome.result.findings], ["GHSA-a"])
+                self.assertTrue(outcome.lookups[0].incomplete)
+                self.assertFalse(self.cache._path(("PyPI", "idna", "3.5")).exists())
+                stats = dict(outcome.result.summary.details)
+                self.assertEqual((stats["batch_requests_used"], stats["detail_requests_used"],
+                                  stats["total_requests_used"]), (1, 1, 2))
+
+    def test_advisory_id_reused_across_batches_and_cache_is_network_free(self):
+        self.write("requirements.txt", "idna==3.5\nurllib3==1.0\n")
+        calls = []
+        def transport(method, url, body, limits):
+            calls.append(method)
+            if method == "POST":
+                return {"results": [{"vulns": [{"id": "GHSA-shared"}]}]}
+            return {"id": "GHSA-shared", "affected": [
+                {"package": {"ecosystem": "PyPI", "name": "idna"}},
+                {"package": {"ecosystem": "PyPI", "name": "urllib3"}}]}
+        limits = replace(VulnerabilityLimits(), max_batch_size=1)
+        online = self.outcome(offline=False, provider=OSVProvider(transport), vulnerability=limits)
+        self.assertEqual(calls, ["POST", "GET", "POST"])
+        self.assertEqual(len(online.result.findings), 2)
+        stats = dict(online.result.summary.details)
+        self.assertEqual(stats["deduplicated_advisories"], 1)
+        self.assertEqual(stats["total_requests_used"], 3)
+        calls.clear()
+        offline = self.outcome(provider=OSVProvider(transport), vulnerability=limits)
+        self.assertEqual(calls, [])
+        self.assertEqual(len(offline.result.findings), 2)
+        self.assertEqual(dict(offline.result.summary.details)["total_requests_used"], 0)
+        self.assertEqual(dict(offline.result.summary.details)["cache_hits"], 2)
+
     def test_secret_shaped_filename_is_redacted_in_inventory(self):
         fake_token = "ghp_" + "A" * 36
         self.write(f"requirements-{fake_token}.txt", "idna==3.5\n")

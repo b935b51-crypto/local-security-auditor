@@ -21,3 +21,5 @@ Primary findings are selected using the report's role/group data. Supporting/con
 AI verdicts, including `LIKELY_FALSE_POSITIVE`, and patch proposals are advisory. They are validated as report data for safe viewing but never promote or dismiss a deterministic gate decision. The gate does not auto-apply a proposal, run target code, change config, or access OSV/Gemini.
 
 JSON result fields: `status`, `policy_version`, `blocking_findings`, `warning_findings`, `coverage_status`, `reasons`, `diagnostics`, `report_schema_version`. `blocking_findings` and `warning_findings` contain public fingerprints. Reasons are fixed codes such as `COVERAGE_PARTIAL`, `BLOCKING_PRIMARY_FINDINGS`, `DEPENDENCY_NO_DATA`, and `REPORT_TRUNCATED`.
+
+Hardening #6: a reached OSV batch/detail/total request budget leaves dependency coverage incomplete and is an explicit Gate `BLOCK` reason (`DEPENDENCY_PROVIDER_BUDGET_REACHED`). New JSON 1.1 request counters are optional for older reports; when present, the Gate validates that total requests equal batch plus detail and no count exceeds its stated limit. A budget-hit report cannot be passed as complete coverage.

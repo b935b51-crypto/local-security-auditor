@@ -62,6 +62,9 @@ def render(report: ScanReport, *, top: int = 20, verbose: bool = False) -> str:
     dep = view["summary"]["dependency"]
     lines.append(f"Dependency data: {dep['packages']} packages, {dep['exact_versions']} exact, "
                  f"{dep['no_data']} without advisory data, {dep['matches']} matches")
+    lines.append(f"OSV requests: {dep['batch_requests_used']} batch / {dep['detail_requests_used']} detail "
+                 f"(total {dep['total_requests_used']}/{dep['total_requests_limit']}); "
+                 f"budget {'reached' if dep['provider_budget_reached'] else 'not reached'}")
     if view["scan"]["remediation_requested"]:
         remediation = view["summary"]["remediation"]
         lines.extend(["", "Remediation proposals (never applied)",

@@ -111,7 +111,7 @@ class VulnerabilityCache:
             raise CacheError("DEPENDENCY_CACHE_CORRUPT") from None
 
     def write(self, result: LookupResult) -> None:
-        if result.status not in {LookupStatus.MATCHED, LookupStatus.NO_MATCH}:
+        if result.incomplete or result.status not in {LookupStatus.MATCHED, LookupStatus.NO_MATCH}:
             return
         payload = json.dumps({"schema": SCHEMA, "key": list(result.key), "fetched_at": time.time(),
                               "status": result.status.value,

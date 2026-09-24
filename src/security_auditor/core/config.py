@@ -70,6 +70,9 @@ DEPENDENCY_HARD_CAPS = {
 VULNERABILITY_HARD_CAPS = {
     "max_queries": 5000,
     "max_batch_size": 100,
+    "max_total_batch_requests": 50,
+    "max_total_detail_requests": 500,
+    "max_total_provider_requests": 550,
     "max_response_bytes": 4 * 1024 * 1024,
     "timeout_seconds": 30,
     "max_provider_seconds": 600,
@@ -187,6 +190,9 @@ class VulnerabilityLimits:
     provider: str = "osv"
     max_queries: int = 500
     max_batch_size: int = 50
+    max_total_batch_requests: int = 10
+    max_total_detail_requests: int = 50
+    max_total_provider_requests: int = 60
     max_response_bytes: int = 1024 * 1024
     timeout_seconds: int = 10
     max_provider_seconds: int = 120

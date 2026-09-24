@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass, field
 from time import monotonic
 from typing import Protocol, Sequence
 from urllib.error import HTTPError, URLError
@@ -23,6 +24,39 @@ _CVSS_VECTOR = re.compile(r"^CVSS:[0-9.]+/[A-Za-z0-9:/._-]{1,190}$")
 
 class ProviderError(Exception):
     """Fixed diagnostic code only; never include network payloads."""
+
+
+class ProviderBudgetReached(ProviderError):
+    """A request was refused before network access."""
+
+
+@dataclass(slots=True)
+class ProviderScanState:
+    """One operation's actual network requests and bounded advisory reuse."""
+
+    batch_requests: int = 0
+    detail_requests: int = 0
+    deduplicated_advisories: int = 0
+    budget_code: str | None = None
+    details: dict[str, dict] = field(default_factory=dict)
+
+    @property
+    def total_requests(self) -> int:
+        return self.batch_requests + self.detail_requests
+
+    def reserve(self, method: str, limits: VulnerabilityLimits) -> None:
+        if method == "POST" and self.batch_requests >= limits.max_total_batch_requests:
+            self.budget_code = "DEPENDENCY_OSV_BATCH_BUDGET_REACHED"
+        elif method == "GET" and self.detail_requests >= limits.max_total_detail_requests:
+            self.budget_code = "DEPENDENCY_OSV_DETAIL_BUDGET_REACHED"
+        elif self.total_requests >= limits.max_total_provider_requests:
+            self.budget_code = "DEPENDENCY_OSV_TOTAL_REQUEST_BUDGET_REACHED"
+        if self.budget_code:
+            raise ProviderBudgetReached(self.budget_code)
+        if method == "POST":
+            self.batch_requests += 1
+        else:
+            self.detail_requests += 1
 
 
 class VulnerabilityProvider(Protocol):
@@ -78,10 +112,15 @@ def _safe_reference(value: object) -> str | None:
 def validate_lookup(result: LookupResult, limits: VulnerabilityLimits) -> None:
     """Validate even injected adapters before results reach findings or cache."""
     if (not isinstance(result, LookupResult) or not isinstance(result.status, LookupStatus)
+            or type(result.incomplete) is not bool
             or len(result.vulnerabilities) > limits.max_advisories):
         raise ProviderError("VULN_PROVIDER_BAD_RESPONSE")
     if result.status not in {LookupStatus.MATCHED, LookupStatus.NO_MATCH}:
+        if result.vulnerabilities:
+            raise ProviderError("VULN_PROVIDER_BAD_RESPONSE")
         return
+    if result.status is LookupStatus.NO_MATCH and result.incomplete:
+        raise ProviderError("VULN_PROVIDER_BAD_RESPONSE")
     if bool(result.vulnerabilities) != (result.status is LookupStatus.MATCHED):
         raise ProviderError("VULN_PROVIDER_BAD_RESPONSE")
     for vuln in result.vulnerabilities:
@@ -166,9 +205,11 @@ class OSVProvider:
     def __init__(self, transport=None):
         self._transport = transport or _transport
 
-    def lookup_batch(self, keys: Sequence[tuple[str, str, str]], limits: VulnerabilityLimits) -> tuple[LookupResult, ...]:
+    def lookup_batch(self, keys: Sequence[tuple[str, str, str]], limits: VulnerabilityLimits,
+                     state: ProviderScanState | None = None) -> tuple[LookupResult, ...]:
         if len(keys) > limits.max_batch_size:
             raise ProviderError("DEPENDENCY_QUERY_LIMIT_REACHED")
+        state = state if state is not None else ProviderScanState()
         deadline = monotonic() + limits.max_provider_seconds
         total_bytes = 0
 
@@ -176,6 +217,7 @@ class OSVProvider:
             nonlocal total_bytes
             if monotonic() >= deadline:
                 raise ProviderError("VULN_PROVIDER_TIMEOUT")
+            state.reserve(method, limits)
             response = self._transport(method, url, body, limits)
             if isinstance(response, tuple) and len(response) == 2:
                 value, size = response
@@ -216,14 +258,28 @@ class OSVProvider:
         if len(unique_ids) > limits.max_advisories:
             raise ProviderError("DEPENDENCY_QUERY_LIMIT_REACHED")
         details = {}
+        detail_budget_exhausted = False
         for identifier in sorted(unique_ids):
-            detail = fetch("GET", OSV_BASE + "/vulns/" + quote(identifier, safe=""), None)
+            if identifier in state.details:
+                details[identifier] = state.details[identifier]
+                state.deduplicated_advisories += 1
+                continue
+            if detail_budget_exhausted:
+                continue
+            try:
+                detail = fetch("GET", OSV_BASE + "/vulns/" + quote(identifier, safe=""), None)
+            except ProviderBudgetReached:
+                detail_budget_exhausted = True
+                continue
             if detail.get("id") != identifier:
                 raise ProviderError("VULN_PROVIDER_BAD_RESPONSE")
             details[identifier] = detail
+            state.details[identifier] = detail
         output = []
         for key, ids in zip(keys, ids_by_key):
-            vulns = tuple(_normalize_advisory(details[identifier], key) for identifier in ids)
+            missing = any(identifier not in details for identifier in ids)
+            vulns = tuple(_normalize_advisory(details[identifier], key) for identifier in ids if identifier in details)
             active = tuple(v for v in vulns if not v.withdrawn)
-            output.append(LookupResult(key, LookupStatus.MATCHED if active else LookupStatus.NO_MATCH, active))
+            status = LookupStatus.MATCHED if active else (LookupStatus.NO_DATA if missing else LookupStatus.NO_MATCH)
+            output.append(LookupResult(key, status, active, incomplete=missing))
         return tuple(output)

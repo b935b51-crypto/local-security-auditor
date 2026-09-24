@@ -82,6 +82,14 @@ class DependencySummary:
     matches: int = 0
     first_party_roots: int = 0
     unresolved_third_party: int = 0
+    batch_requests_used: int = 0
+    batch_requests_limit: int = 0
+    detail_requests_used: int = 0
+    detail_requests_limit: int = 0
+    total_requests_used: int = 0
+    total_requests_limit: int = 0
+    deduplicated_advisories: int = 0
+    provider_budget_reached: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -238,7 +246,15 @@ def assemble_report(session: ScanSession, discovery: DiscoveryResult,
                                                      LookupStatus.QUERY_FAILED} for l in lookups),
                                     metrics.get("vulnerability_matches", 0),
                                     metrics.get("first_party_roots", 0),
-                                    metrics.get("unresolved_dependencies", 0))
+                                    metrics.get("unresolved_dependencies", 0),
+                                    metrics.get("batch_requests_used", 0),
+                                    metrics.get("batch_requests_limit", 0),
+                                    metrics.get("detail_requests_used", 0),
+                                    metrics.get("detail_requests_limit", 0),
+                                    metrics.get("total_requests_used", 0),
+                                    metrics.get("total_requests_limit", 0),
+                                    metrics.get("deduplicated_advisories", 0),
+                                    bool(metrics.get("provider_budget_reached", 0)))
     return ScanReport(SCHEMA_VERSION, "Local Security Auditor", __version__, session.id,
                       started_at, completed_at, max(0.0, duration_seconds),
                       session.target.display_name, session.profile.value, session.offline,

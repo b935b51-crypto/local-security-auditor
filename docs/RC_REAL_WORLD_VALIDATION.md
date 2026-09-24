@@ -1,5 +1,17 @@
 # RC real-world validation: Trading Platform coverage diagnosis
 
+## Hardening #6 provider-budget pilot (2026-09-24)
+
+Source hardening now caps one OSV operation at 10 batch, 50 advisory detail, and 60 total network requests by default. For the Trading Platform's last observed 341 unique exact keys and batch size 50, seven batch requests would be needed without package cache; advisory details are capped at 50 and all network calls at 60. The project was **not** queried online in this hardening. Its earlier offline coverage and Gate result remain the latest observed target state.
+
+Offline synthetic regressions passed for batch/detail/total limits, cross-batch advisory-ID reuse, normalized package cache replay, retained partial Findings, unqueried `NO_DATA` semantics, public counters, zh-TW budget warning, and Gate `BLOCK`. The default Python 3.12.11 suite ran 170 tests, 165 passed, 0 failed, 5 skipped (the additional skip is the new gated live pilot).
+
+A single gated online pilot used ten public PyPI name/version coordinates from an inert temporary requirements file. It was limited to one official HTTPS batch request and three advisory detail requests, with a four-request total ceiling. The formal provider returned `VULN_PROVIDER_BAD_RESPONSE`; no Finding was produced. The test assertion occurred before its safe method-count output, so the **actual** live POST/GET counts are not available from that run; the enforced maximum was four. The temporary target/cache were removed. There was no second live flow, Gemini call, or target source/local path upload. This pilot is **not a successful live validation**. A future bounded, metadata-only diagnostic of the response mismatch is needed before a 341-key live scan. The earlier one-key PyYAML live result remains separately verified.
+
+---
+
+## Earlier offline diagnosis and hardening #5 (historical baseline)
+
 Date: 2026-09-24 (Asia/Taipei). This is a passive, offline diagnosis of the operator-provided Trading Platform repository under Local Security Auditor 0.9.0 RC at `316feb3`. The target was treated as untrusted input. No target code, tests, installer, Gemini, or OSV request ran. No scanner config, rule, limit, or target file was changed.
 
 The formal command was `uv run --offline --no-sync security-auditor scan <target> --offline --no-ai --format json --output audit-trading-platform-coverage-diagnosis.json`. The untracked JSON report is in the auditor workspace and is **not** a release artifact. The target's Git status was empty before and after the scan.
@@ -75,4 +87,4 @@ The sole public Secret size diagnostic now has code `SECRET_FILE_TOO_LARGE` and 
 
 The full project-local Python 3.12.11 offline suite ran with live gates unset: 165 tests, 161 passed, 0 failed, 4 skipped. Synthetic regressions cover root identity and counterexamples, offline cache absence, Secret filename redaction, JSON/HTML paths, and optional JSON 1.1 Gate fields.
 
-The remaining RC distribution wheel/sdist predate hardening #4 and #5. Rebuild and clean-smoke the 0.9.0 RC artifacts before external validation. Before any full-project live OSV request for 341 keys, assess a scan-wide advisory detail request budget; the current per-batch limit alone can permit too many detail requests.
+The remaining RC distribution wheel/sdist predate hardening #4 and #5. Rebuild and clean-smoke the 0.9.0 RC artifacts before external validation. At the time of hardening #5, a scan-wide advisory detail budget was still missing; hardening #6 added that limit, with its new live pilot outcome recorded above.

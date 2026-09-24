@@ -114,7 +114,16 @@ def render(report: ScanReport) -> str:
                f"{_m('first_party_roots')}：{_e(dependency['first_party_roots'])}；"
                f"{_m('unresolved_third_party')}：{_e(dependency['unresolved_third_party'])}；"
                f"{_m('no_data')}：{_e(dependency['no_data'])}；"
-               f"{_m('matches')}：{_e(dependency['matches'])}</p></section>")
+               f"{_m('matches')}：{_e(dependency['matches'])}</p>"
+               f"<p>{_m('osv_requests')}：{_m('osv_batch')} "
+               f"{_e(dependency['batch_requests_used'])} / {_e(dependency['batch_requests_limit'])}；"
+               f"{_m('osv_detail')} {_e(dependency['detail_requests_used'])} / "
+               f"{_e(dependency['detail_requests_limit'])}；"
+               f"{_m('total')} {_e(dependency['total_requests_used'])} / "
+               f"{_e(dependency['total_requests_limit'])}</p>")
+    if dependency['provider_budget_reached']:
+        out.append(f"<p class='coverage incomplete'><strong>{_m('osv_budget_warning')}</strong></p>")
+    out.append("</section>")
     out.append(f"<section><h2>{_m('ai')}</h2><p>{_m('status')}：{_v(data['summary']['ai_status'])}；"
                f"{_m('reviewed')} {_e(coverage['ai_reviewed'])} / {_e(coverage['ai_eligible'])} "
                f"{_m('eligible')}</p><p>{_m('ai_advisory')}</p>")

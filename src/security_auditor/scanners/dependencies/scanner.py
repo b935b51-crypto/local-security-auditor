@@ -25,7 +25,8 @@ from .models import (DependencyIdentity, DependencyInventory, DependencyRecord, 
                      LookupResult, LookupStatus, VersionKind, Vulnerability, reconcile)
 from .parsers import parse_npm, parse_python, parse_rust_go
 from .parsers.common import ParseError, ParseResult
-from .providers import OSVProvider, ProviderError, VulnerabilityProvider, validate_lookup
+from .providers import (OSVProvider, ProviderBudgetReached, ProviderError, ProviderScanState,
+                        VulnerabilityProvider, validate_lookup)
 
 
 RULE = RuleReference("DEPENDENCY.KNOWN_VULNERABILITY", "Known vulnerable dependency")
@@ -42,6 +43,9 @@ _MESSAGES = {
     "DEPENDENCY_QUERY_LIMIT_REACHED": "vulnerability query budget reached",
     "DEPENDENCY_PROVIDER_NO_DATA": "no vulnerability data available for an exact dependency",
     "DEPENDENCY_PROVIDER_FAILED": "vulnerability provider did not return complete data",
+    "DEPENDENCY_OSV_BATCH_BUDGET_REACHED": "OSV batch request budget reached; remaining dependencies were not queried",
+    "DEPENDENCY_OSV_DETAIL_BUDGET_REACHED": "OSV advisory detail request budget reached; remaining advisories were not queried",
+    "DEPENDENCY_OSV_TOTAL_REQUEST_BUDGET_REACHED": "OSV total request budget reached; remaining dependencies were not queried",
     "DEPENDENCY_CACHE_CORRUPT": "vulnerability cache entry was invalid",
     "DEPENDENCY_CACHE_STALE": "stale vulnerability cache data was used",
     "DEPENDENCY_CACHE_READ_FAILED": "vulnerability cache could not be read",
@@ -286,6 +290,7 @@ class DependencyScanner:
 
         lookups: dict[tuple[str, str, str], LookupResult] = {}
         cache_hits = stale_hits = provider_queries = provider_failures = 0
+        provider_state = ProviderScanState()
         keys = inventory.exact_keys()
         if len(keys) > self.vulnerability.max_queries:
             note("DEPENDENCY_QUERY_LIMIT_REACHED"); state = "aborted"; limits_hit += 1
@@ -322,16 +327,23 @@ class DependencyScanner:
             provider_deadline = min(deadline, monotonic() + self.vulnerability.max_provider_seconds)
             for start in range(0, len(pending), self.vulnerability.max_batch_size):
                 batch = pending[start:start + self.vulnerability.max_batch_size]
+                if provider_state.budget_code:
+                    break
                 remaining = provider_deadline - monotonic()
                 if remaining <= 0:
                     note("VULN_PROVIDER_TIMEOUT"); state = "aborted"; break
                 try:
                     batch_limits = replace(self.vulnerability, max_provider_seconds=max(1, int(remaining)))
-                    results = self.provider.lookup_batch(batch, batch_limits)
+                    if isinstance(self.provider, OSVProvider):
+                        results = self.provider.lookup_batch(batch, batch_limits, provider_state)
+                    else:
+                        results = self.provider.lookup_batch(batch, batch_limits)
                     if len(results) != len(batch) or tuple(result.key for result in results) != tuple(batch):
                         raise ProviderError("VULN_PROVIDER_BAD_RESPONSE")
                     for result in results:
                         validate_lookup(result, self.vulnerability)
+                except ProviderBudgetReached:
+                    break
                 except ProviderError as error:
                     note(str(error)); note("DEPENDENCY_PROVIDER_FAILED")
                     provider_failures += len(batch)
@@ -342,10 +354,18 @@ class DependencyScanner:
                 provider_queries += len(batch)
                 for result in results:
                     lookups[result.key] = result
+                    if result.incomplete:
+                        note(provider_state.budget_code or "DEPENDENCY_PROVIDER_NO_DATA")
                     if result.status is LookupStatus.QUERY_FAILED: note("DEPENDENCY_PROVIDER_FAILED")
                     elif cache_ok:
                         try: self.cache.write(result)
                         except CacheError as error: note(str(error))
+                if provider_state.budget_code:
+                    note(provider_state.budget_code)
+                    limits_hit += 1
+                    break
+            if provider_state.budget_code and provider_state.budget_code not in seen_codes:
+                note(provider_state.budget_code); limits_hit += 1
         for key in keys:
             if key not in lookups:
                 lookups[key] = LookupResult(key, LookupStatus.NO_DATA)
@@ -385,6 +405,14 @@ class DependencyScanner:
             ("unique_package_versions", len(keys)), ("cache_hits", cache_hits),
             ("stale_cache_hits", stale_hits), ("provider_queries", provider_queries),
             ("provider_failures", provider_failures), ("vulnerability_matches", len(findings)),
+            ("batch_requests_used", provider_state.batch_requests),
+            ("batch_requests_limit", self.vulnerability.max_total_batch_requests),
+            ("detail_requests_used", provider_state.detail_requests),
+            ("detail_requests_limit", self.vulnerability.max_total_detail_requests),
+            ("total_requests_used", provider_state.total_requests),
+            ("total_requests_limit", self.vulnerability.max_total_provider_requests),
+            ("deduplicated_advisories", provider_state.deduplicated_advisories),
+            ("provider_budget_reached", int(provider_state.budget_code is not None)),
         )
         summary = ScannerSummary(considered, scanned, skipped, byte_count, len(keys), len(findings),
                                  0, raw_matches - len(findings), limits_hit, state, metrics)
