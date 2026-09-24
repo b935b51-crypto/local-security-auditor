@@ -21,6 +21,7 @@ from security_auditor.discovery.content import ArtifactReadError, read_admitted_
 from security_auditor.discovery.models import DiscoveryResult, ScanCompleteness
 from . import detectors
 from .fingerprint import finding_fingerprint
+from .large_text import LargeTextDeadline, LargeTextResult, scan_large_artifact
 from .models import SecretCandidate
 from .rules import RULES, RULE_BY_ID
 
@@ -39,6 +40,7 @@ _DIAGNOSTIC_TEXT = {
     "SECRET_DISCOVERY_INCOMPLETE": "file discovery was incomplete",
     "SECRET_PRIVATE_KEY_UNTERMINATED": "private-key begin marker has no matching end marker",
     "SECRET_FINGERPRINT_COLLISION": "redacted finding anchors collided; distinct safe identities were assigned",
+    "SECRET_LARGE_TEXT_INCOMPLETE": "bounded large-text rule context or match budget was incomplete",
 }
 
 
@@ -111,6 +113,8 @@ class SecretScanner:
                 ))
 
         considered = scanned = skipped = byte_count = match_count = placeholders = duplicates = limits_hit = 0
+        full_buffer_files = large_text_files = large_text_partial_files = 0
+        large_text_bytes = long_lines = incomplete_long_lines = 0
         state = "complete"
         if discovery_state is not ScanCompleteness.COMPLETE:
             note("SECRET_DISCOVERY_INCOMPLETE")
@@ -137,26 +141,73 @@ class SecretScanner:
                 state = "aborted"
                 limits_hit += 1
                 break
-            try:
-                data = read_admitted_artifact(root, artifact, max_bytes=self.limits.max_file_bytes)
-            except ArtifactReadError:
-                note("SECRET_READ_FAILED", artifact)
-                state = "partial" if state == "complete" else state
-                skipped += 1
-                continue
-            byte_count += len(data)
-            try:
-                source = data.decode(artifact.encoding or "utf-8", errors="strict")
-            except (UnicodeError, LookupError):
-                note("SECRET_DECODE_UNAVAILABLE", artifact)
-                state = "partial" if state == "complete" else state
-                skipped += 1
-                continue
-            finally:
-                del data
+            is_large = artifact.size_bytes > self.limits.full_buffer_threshold_bytes
+            large = LargeTextResult([], artifact.path) if is_large else None
+            if is_large:
+                try:
+                    large = scan_large_artifact(root, artifact, self.limits, started, large)
+                except LargeTextDeadline:
+                    byte_count += large.bytes_scanned
+                    note("SECRET_SCAN_ABORTED")
+                    state = "aborted"
+                    skipped += 1
+                    limits_hit += 1
+                    break
+                except (UnicodeError, LookupError):
+                    byte_count += large.bytes_scanned
+                    note("SECRET_DECODE_UNAVAILABLE", artifact)
+                    state = "partial" if state == "complete" else state
+                    skipped += 1
+                    continue
+                except ArtifactReadError:
+                    byte_count += large.bytes_scanned
+                    note("SECRET_READ_FAILED", artifact)
+                    state = "partial" if state == "complete" else state
+                    skipped += 1
+                    continue
+                except Exception:
+                    byte_count += large.bytes_scanned
+                    note("SECRET_RULE_ERROR")
+                    state = "partial" if state == "complete" else state
+                    skipped += 1
+                    continue
+                byte_count += large.bytes_scanned
+                large_text_files += 1
+                large_text_bytes += large.bytes_scanned
+                long_lines += large.long_lines
+                incomplete_long_lines += large.incomplete_lines
+                match_count += large.candidate_matches
+                placeholders += large.placeholders
+                duplicates += large.duplicates
+                limits_hit += large.limit_hits
+                if large.incomplete:
+                    large_text_partial_files += 1
+                    note("SECRET_LARGE_TEXT_INCOMPLETE", artifact)
+                    state = "partial" if state == "complete" else state
+                source = ""
+            else:
+                try:
+                    data = read_admitted_artifact(root, artifact, max_bytes=self.limits.max_file_bytes)
+                except ArtifactReadError:
+                    note("SECRET_READ_FAILED", artifact)
+                    state = "partial" if state == "complete" else state
+                    skipped += 1
+                    continue
+                byte_count += len(data)
+                try:
+                    source = data.decode(artifact.encoding or "utf-8", errors="strict")
+                except (UnicodeError, LookupError):
+                    note("SECRET_DECODE_UNAVAILABLE", artifact)
+                    state = "partial" if state == "complete" else state
+                    skipped += 1
+                    continue
+                finally:
+                    del data
+                full_buffer_files += 1
             scanned += 1
-            file_candidates: list[tuple[int, SecretCandidate]] = []
-            safe_path = artifact.path
+            file_candidates: list[tuple[int, SecretCandidate]] = (
+                large.candidates if large is not None else [])
+            safe_path = large.safe_path if large is not None else artifact.path
             rule_counts: dict[str, int] = {}
             inside_key = False
             file_limited = False
@@ -230,6 +281,11 @@ class SecretScanner:
             if inside_key:
                 note("SECRET_PRIVATE_KEY_UNTERMINATED")
                 state = "partial" if state == "complete" else state
+            if large is not None and large.inside_key:
+                if not large.incomplete:
+                    large_text_partial_files += 1
+                note("SECRET_PRIVATE_KEY_UNTERMINATED")
+                state = "partial" if state == "complete" else state
             del source
             aws_id_lines = [number for number, item in file_candidates if item.rule_id == "SECRET.AWS.ACCESS_KEY"]
             aws_secret_lines = [number for number, item in file_candidates
@@ -275,13 +331,23 @@ class SecretScanner:
                 )
                 findings.append(finding)
                 if len(findings) >= self.limits.max_findings_total:
+                    if large is not None and not (large.incomplete or large.inside_key):
+                        large_text_partial_files += 1
                     note("SECRET_MATCH_LIMIT_REACHED")
                     limits_hit += 1
                     state = "aborted"
                     break
             if state == "aborted":
                 break
-        summary = ScannerSummary(considered, scanned, skipped, byte_count, match_count,
-                                 len(findings), placeholders, duplicates, limits_hit, state)
+        summary = ScannerSummary(
+            considered, scanned, skipped, byte_count, match_count,
+            len(findings), placeholders, duplicates, limits_hit, state,
+            details=(("full_buffer_files", full_buffer_files),
+                     ("large_text_files_scanned", large_text_files),
+                     ("large_text_files_partial", large_text_partial_files),
+                     ("large_text_bytes_scanned", large_text_bytes),
+                     ("long_lines_segment_scanned", long_lines),
+                     ("long_lines_partially_scanned", incomplete_long_lines)),
+        )
         status = "completed" if state == "complete" else state
         return ScannerResult(self.metadata, tuple(findings), status, tuple(diagnostics), summary)

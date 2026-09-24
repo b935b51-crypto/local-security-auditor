@@ -22,6 +22,15 @@ def render(report: ScanReport, *, top: int = 20, verbose: bool = False) -> str:
         lines.append(f"  {severity.title()}: {counts['severity'][severity]}")
     if counts["total_findings"] == 0:
         lines.append("No findings detected in the analyzed coverage.")
+    for scanner in view["scanners"]:
+        large = scanner.get("large_text")
+        if scanner["id"] == "secrets" and large and large["large_text_files_scanned"]:
+            lines.append(
+                f"Large-text Secret scan: {large['large_text_files_scanned']} files, "
+                f"{large['long_lines_segment_scanned']} long lines, "
+                f"{large['long_lines_partially_scanned']} incomplete lines; "
+                f"coverage {scanner['completeness'].upper()}"
+            )
     lines.extend(["", "Risk priorities"])
     for name, count in counts["risk_priority"].items():
         lines.append(f"  {name}: {count}")

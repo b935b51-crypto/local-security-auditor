@@ -1,5 +1,7 @@
 # Large Text Secret Coverage Assessment — 2026-09-24
 
+> Implementation update (Hardening #8, 2026-09-24): The separately authorized hybrid bounded large-text path is now implemented in source. The assessment below is the historical decision basis; its statements that no production mode exists describe the earlier assessment turn. See [Secret Scanner](SECRET_SCANNER.md) and the [new offline Trading Platform re-scan](RC_REAL_WORLD_VALIDATION.md#bounded-large-text-secret-re-scan-hardening-8-2026-09-24). The existing 0.9.0 distribution artifacts have not yet been rebuilt from this source change.
+
 This is a read-only v1 RC assessment, not an implemented scanner mode. Target content was never printed, executed, imported, copied into this repository, or uploaded. Synthetic benchmark files and prototypes lived only in verified system temporary directories and were removed. Production Secret limits, exclusions, rules, reports, and Gate behavior are unchanged.
 
 ## Current architecture and limits

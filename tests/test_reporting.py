@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from security_auditor.ai.models import AIUsage
 from security_auditor.ai.providers import ProviderResponse
 from security_auditor.cli.main import main
-from security_auditor.core.config import AuditConfig, DiscoveryLimits, VulnerabilityLimits
+from security_auditor.core.config import AuditConfig, DiscoveryLimits, SecretLimits, VulnerabilityLimits
 from security_auditor.core.models import Location, ScanProfile
 from security_auditor.gate.service import GateStatus, evaluate_gate
 from security_auditor.orchestrator import ScanOrchestrator, ScanRequest
@@ -177,7 +177,10 @@ class ReportTests(unittest.TestCase):
             '[[package]]\nname="demo"\nversion="0.1.0"\nsource={editable="."}\n', encoding="utf-8")
         (self.root / "logs").mkdir()
         (self.root / "logs" / "big.log").write_bytes(b"SYNTHETIC DATA\n" * 75000)
-        report = self.report(config=replace(AuditConfig(), vulnerability=VulnerabilityLimits(cache_enabled=False)))
+        report = self.report(config=replace(
+            AuditConfig(), vulnerability=VulnerabilityLimits(cache_enabled=False),
+            secrets=SecretLimits(max_file_bytes=1 * 1024 * 1024),
+        ))
         view = json.loads(json_report.render(report))
         dependency = view["summary"]["dependency"]
         self.assertEqual(dependency["first_party_roots"], 1)
@@ -254,7 +257,7 @@ class ReportTests(unittest.TestCase):
     def test_oversize_secret_shaped_filename_is_redacted_in_public_reports(self):
         fake_token = "ghp_" + ("A1b2C3d4" * 5)[:36]
         (self.root / f"0-{fake_token}.log").write_bytes(b"SYNTHETIC DATA\n" * 75000)
-        report = self.report()
+        report = self.report(config=replace(AuditConfig(), secrets=SecretLimits(max_file_bytes=1 * 1024 * 1024)))
         json_text = json_report.render(report)
         html_text = html.render(report)
         self.assertNotIn(fake_token, json_text)

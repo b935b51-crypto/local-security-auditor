@@ -163,6 +163,17 @@ def render(report: ScanReport) -> str:
     for item in coverage["components"]:
         out.append(f"<p>{_e(scanner_label(item['component']))}：{_v(item['status'])} "
                    f"<code>{_e(', '.join(item['reasons']))}</code></p>")
+    for scanner in data["scanners"]:
+        large = scanner.get("large_text")
+        if scanner["id"] != "secrets" or not large or not large["large_text_files_scanned"]:
+            continue
+        large_message_key = "large_text_partial" if large["large_text_files_partial"] else "large_text_complete"
+        out.append(
+            f"<p>{_m(large_message_key)} "
+            f"{_m('large_text_files')}：{_e(large['large_text_files_scanned'])}；"
+            f"{_m('large_text_long_lines')}：{_e(large['long_lines_segment_scanned'])}；"
+            f"{_m('large_text_incomplete_lines')}：{_e(large['long_lines_partially_scanned'])}</p>"
+        )
     for diagnostic in data["diagnostics"]:
         path = f"<code>{_e(diagnostic['path'])}</code>：" if diagnostic["path"] else ""
         out.append(f"<p>{path}<code>{_e(diagnostic['code'])}</code> — "

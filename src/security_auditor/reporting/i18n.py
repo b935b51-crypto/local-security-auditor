@@ -3,6 +3,11 @@
 HTML_LOCALE = "zh-TW"
 
 MESSAGES = {
+    "large_text_complete": "大型文字檔已使用有界分塊模式完成分析。",
+    "large_text_partial": "部分大型文字內容因安全資源或規則限制未完成分析。",
+    "large_text_files": "大型文字檔數",
+    "large_text_long_lines": "已分段分析的長行",
+    "large_text_incomplete_lines": "未完整分析的長行",
     "osv_requests": "OSV 請求",
     "osv_batch": "批次",
     "osv_detail": "漏洞詳情",
@@ -140,6 +145,7 @@ DIAGNOSTICS = {
     "SECRET_SCAN_BYTE_BUDGET_REACHED": "機密資訊掃描已達總讀取位元組上限。",
     "SECRET_MATCH_LIMIT_REACHED": "機密資訊掃描已達命中或結果數量上限。",
     "SECRET_LINE_TOO_LONG": "文字行超過機密資訊掃描上限。",
+    "SECRET_LARGE_TEXT_INCOMPLETE": "大型文字檔的部分規則語境或匹配數量未能在安全上限內完整分析。",
     "SECRET_DECODE_UNAVAILABLE": "無法解讀檔案文字編碼。",
     "SECRET_READ_FAILED": "無法安全讀取已納入的檔案。",
     "SECRET_RULE_ERROR": "機密資訊掃描規則處理失敗。",

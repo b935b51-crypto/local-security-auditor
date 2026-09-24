@@ -31,6 +31,7 @@ DEFAULT_MAX_ELAPSED_SECONDS = 300
 
 SECRET_HARD_CAPS = {
     "max_file_bytes": 4 * 1024 * 1024,
+    "full_buffer_threshold_bytes": 4 * 1024 * 1024,
     "max_total_bytes": 256 * 1024 * 1024,
     "max_line_bytes": 64 * 1024,
     "max_matches_per_rule_per_file": 1000,
@@ -150,7 +151,10 @@ class BehaviorLimits:
 @dataclass(frozen=True, slots=True)
 class SecretLimits:
     enabled: bool = True
-    max_file_bytes: int = 1024 * 1024
+    # max_file_bytes remains the trusted per-file admission cap. Existing
+    # explicit values keep their prior meaning; only the default grows.
+    max_file_bytes: int = 4 * 1024 * 1024
+    full_buffer_threshold_bytes: int = 1024 * 1024
     max_total_bytes: int = 64 * 1024 * 1024
     max_line_bytes: int = 16 * 1024
     max_matches_per_rule_per_file: int = 100

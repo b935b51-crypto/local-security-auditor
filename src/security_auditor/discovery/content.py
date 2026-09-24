@@ -75,3 +75,72 @@ def read_admitted_artifact(root: Path, artifact: FileArtifact, *, max_bytes: int
         raise
     except (OSError, RuntimeError, ValueError):
         raise ArtifactReadError("SECRET_READ_FAILED") from None
+
+
+def iter_admitted_artifact_chunks(root: Path, artifact: FileArtifact, *,
+                                  max_bytes: int, chunk_bytes: int = 64 * 1024):
+    """Yield bounded bytes from one admitted file, then verify its identity.
+
+    Consumers must exhaust this iterator before treating analysis as complete.
+    It intentionally repeats the full-read path's safety checks rather than
+    weakening the small-file reader's established behavior.
+    """
+    if (type(max_bytes) is not int or max_bytes < 0 or artifact.size_bytes > max_bytes
+            or type(chunk_bytes) is not int or not 1 <= chunk_bytes <= 64 * 1024):
+        raise ArtifactReadError("SECRET_FILE_TOO_LARGE")
+    parts = artifact.path.split("/")
+    if not parts or any(unsafe_component(part) for part in parts):
+        raise ArtifactReadError("SECRET_READ_FAILED")
+    try:
+        selected_info = os.stat(root, follow_symlinks=False)
+        if is_reparse_point(selected_info) or not stat.S_ISDIR(selected_info.st_mode):
+            raise ArtifactReadError("SECRET_READ_FAILED")
+        canonical = root.resolve(strict=True)
+        root_info = os.stat(canonical, follow_symlinks=False)
+        if (is_reparse_point(root_info) or not stat.S_ISDIR(root_info.st_mode)
+                or (selected_info.st_dev, selected_info.st_ino) != (root_info.st_dev, root_info.st_ino)):
+            raise ArtifactReadError("SECRET_READ_FAILED")
+        current = canonical
+        for part in parts[:-1]:
+            current = current / part
+            info = os.stat(current, follow_symlinks=False)
+            if (is_reparse_point(info) or not stat.S_ISDIR(info.st_mode)
+                    or info.st_dev != root_info.st_dev or not is_within_root(canonical, current)):
+                raise ArtifactReadError("SECRET_READ_FAILED")
+        path = current / parts[-1]
+        before = os.stat(path, follow_symlinks=False)
+        if (is_reparse_point(before) or not stat.S_ISREG(before.st_mode)
+                or before.st_dev != root_info.st_dev or not is_within_root(canonical, path)
+                or before.st_size != artifact.size_bytes or before.st_mtime_ns != artifact.mtime_ns
+                or artifact.identity is None or file_identity(path, before) != artifact.identity):
+            raise ArtifactReadError("SECRET_READ_FAILED")
+        flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        descriptor = os.open(path, flags)
+        with os.fdopen(descriptor, "rb") as stream:
+            opened = os.fstat(stream.fileno())
+            fresh = os.stat(path, follow_symlinks=False)
+            if (is_reparse_point(fresh) or not stat.S_ISREG(opened.st_mode)
+                    or not is_within_root(canonical, path)
+                    or (opened.st_dev, opened.st_ino, opened.st_size, opened.st_mtime_ns)
+                    != (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+                    or (fresh.st_dev, fresh.st_ino, fresh.st_size, fresh.st_mtime_ns)
+                    != (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)):
+                raise ArtifactReadError("SECRET_READ_FAILED")
+            remaining = artifact.size_bytes
+            while remaining:
+                data = stream.read(min(chunk_bytes, remaining))
+                if not data:
+                    raise ArtifactReadError("SECRET_READ_FAILED")
+                remaining -= len(data)
+                yield data
+            after = os.fstat(stream.fileno())
+            fresh = os.stat(path, follow_symlinks=False)
+            if ((after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+                    != (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+                    or (fresh.st_dev, fresh.st_ino, fresh.st_size, fresh.st_mtime_ns)
+                    != (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)):
+                raise ArtifactReadError("SECRET_READ_FAILED")
+    except ArtifactReadError:
+        raise
+    except (OSError, RuntimeError, ValueError):
+        raise ArtifactReadError("SECRET_READ_FAILED") from None

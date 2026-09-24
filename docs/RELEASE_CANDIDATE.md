@@ -2,6 +2,8 @@
 
 Validated on 2026-09-24 with Windows NT 10.0.26200, uv 0.12.13, and CPython 3.12.11. This is a **release candidate baseline**, not a final 1.0.0 release or a certification of scanned projects. Phase 10 has not started.
 
+**Current artifact status after Hardening #8: stale relative to source.** The clean-install verification below remains the historical result for the earlier 0.9.0 wheel/sdist. Bounded large-text Secret scanning was added afterward and has not yet been rebuilt or clean-smoke validated from a distribution artifact.
+
 ## Artifact refresh from `9ef8b40` (2026-09-24)
 
 The stale local 0.9.0 wheel and sdist were replaced after `uv run --offline --no-sync python -m unittest discover -s tests -q` passed on Python 3.12.11: **181 tests, 175 passed, 0 failed, 6 skipped**. Live OSV and Gemini gates were unset. `uv build --offline` built the sdist and then the wheel from that sdist. `pyproject.toml` remains the single version source at `0.9.0`; the wheel/sdist metadata, installed CLI, and JSON `tool.version` all returned `0.9.0`.

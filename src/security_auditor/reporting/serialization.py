@@ -163,6 +163,12 @@ def report_view(report: ScanReport) -> dict:
                           "artifacts_applicable": r.summary.artifacts_applicable,
                           "artifacts_not_applicable": r.summary.artifacts_not_applicable}
                          if r.summary and r.scanner.id in {"sast.python", "behavior.static"} else {}),
+                      **({"large_text": {
+                          "modes": (["FULL_BUFFER"] if dict(r.summary.details).get("full_buffer_files") else [])
+                                   + (["LARGE_TEXT_BOUNDED"] if
+                                      dict(r.summary.details).get("large_text_files_scanned") else []),
+                          **dict(r.summary.details),
+                      }} if r.summary and r.scanner.id == "secrets" else {}),
                       "findings": len(r.findings)} for r in report.scanner_results],
         "summary": {"counts": {"total_findings": report.counts.total_findings,
                                 "rendered_findings": report.counts.rendered_findings,
