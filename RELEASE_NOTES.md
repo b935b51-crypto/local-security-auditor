@@ -1,4 +1,32 @@
-# Local Security Auditor 1.0.2
+# Local Security Auditor 1.0.3
+
+**1.0.3 is prepared locally for release validation. No 1.0.3 tag, push, or publication is part of this preparation.**
+
+## Secret Scanner precision patch
+
+Generic hardcoded-secret detection in JavaScript and TypeScript now requires credential-like **source literal** evidence instead of treating arbitrary right-hand-side expression text as secret material. Direct `process.env` references and narrowly proven `NodeJS.ProcessEnv` parameter wrappers, including simple `trim()` or optional `?.trim()` transforms, are no longer described as hardcoded credentials. This requires static declaration evidence; an object called `config` is not trusted by name alone, and declaration evidence is not proof of the runtime caller.
+
+Hardcoded literal fallbacks remain detectable, including `process.env.API_KEY ?? "literal"`, mixed templates, and quoted material inside bounded template interpolation. Runtime calls and member access, such as a token-producing expression, are not classified as high-entropy hardcoded literals when no literal secret material exists; this does not establish that a runtime token is cryptographically secure. Unknown helpers are not assumed to be trusted secure sources.
+
+Clearly synthetic generic test fixtures receive narrower treatment. Test files remain scanned, and provider-specific secret patterns remain active there at their normal severity. The test-fixture classification is heuristic and does not grant blanket trust to tests.
+
+This patch adds no full JS/TS AST or dataflow security analysis. The lexical source-literal reader is bounded and may miss complex expressions; low-diversity literals can still fall below the existing generic detection threshold even in production files. `COMPLETE` means the enabled, supported analyzers finished within their declared scope, not that every vulnerability class was analyzed. Existing real-symlink and UNC validation limitations remain. Remediation runtime tests remain `NOT_RUN`, and Phase 10 controlled patch application is not implemented. JSON schema 1.1, SARIF 2.1.0, Gate policy 1.0, OSV opt-in/budgets, and Gemini's independent opt-in are unchanged.
+
+Install the locally built 1.0.3 wheel in a clean Python `>=3.12,<3.13` environment. The optional `[gemini]` extra remains separate. This document does not imply package-registry publication.
+
+## 1.0.3 validation
+
+Python 3.12.11 full offline regression passed **235 tests: 229 passed, 0 failed, 6 skipped**. The first post-bump run exposed stale 1.0.2 distribution metadata in this repository's `.venv`; refreshing only that project-local installation to 1.0.3 made the complete rerun pass. Default tests made no live provider requests.
+
+Two final offline builds produced the same wheel/sdist filenames, archive member lists, sizes, and SHA-256 values. The final wheel is `local_security_auditor-1.0.3-py3-none-any.whl` (185189 bytes, SHA-256 `d5d95b5965ed1c3735588a1088bb116e00c76ed55f86e75c97cbc511fbdbc064`); the sdist is `local_security_auditor-1.0.3.tar.gz` (135579 bytes, SHA-256 `ba0f1286afda296f029b5ea20a1547c58e4d69ccc1c9fc6c702a5a2d1fafad20`). Archive member and private-path inspection found no `.env`, audit report, tool cache, StockDashboard source copy, or embedded private absolute path. Both archives remain ignored in `dist/`.
+
+Fresh repo-external Python 3.12.11 core-wheel, wheel `[gemini]`, and sdist installations passed. Installed CLI/import/metadata reported 1.0.3; the optional SDK was `google-genai` 2.25.0. The installed wheel passed all 16 synthetic JS/TS golden cases, including environment references, hardcoded fallbacks, opaque literals, provider-specific test tokens, and static template material. CLI help retained offline/OSV/Gemini and proposal options. Default, explicit offline, and offline AI-requested synthetic scans made zero external requests.
+
+The **installed 1.0.3 wheel**, not only source, scanned StockDashboard with `--profile standard --osv --no-ai`: all 16 formerly false-positive generic Secret locations were absent, and all 14 Behavior finding fingerprints matched an immediate source scan of the same target. Counts were 0 Critical, 0 High, 0 Medium, 8 Low, and 6 Info. Secrets, Dependencies, and Overall coverage were COMPLETE with zero diagnostics; 195 exact dependencies hit the cache, `NO_DATA` was zero, and actual OSV/Gemini requests were zero. Gate 1.0 remained WARN for nonblocking findings. Offline installed-wheel HTML was static zh-TW with CSP and no old generic Secret findings; SARIF remained 2.1.0 with 14 results. StockDashboard Git status and HEAD were identical before and after. This observed scan does not establish that the target has no vulnerabilities.
+
+## 1.0.2 release history
+
+The following 1.0.2 account is retained as historical validation evidence.
 
 **1.0.2 is prepared locally for release validation. No 1.0.2 tag, push, or publication is part of this preparation.**
 

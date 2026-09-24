@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.3 — 2026-09-25
+
+### Changed
+
+- Improved JavaScript/TypeScript Secret Scanner precision: generic hardcoded-credential claims now require source-literal evidence instead of treating arbitrary assignment expressions as literal secrets.
+- Recognized direct `process.env` references and narrowly proven `NodeJS.ProcessEnv` parameter wrappers, including simple `trim()` transforms, without suppressing hardcoded literal fallbacks.
+- Stopped generic contextual-entropy findings from using runtime token calls and property names as literal credential material.
+- Narrowed synthetic generic credential handling in test fixtures while continuing to scan tests and detect provider-specific secret shapes there.
+
+### Compatibility
+
+- This is a detection-precision patch, not a security vulnerability fix or full JS/TS SAST. JSON schema 1.1, SARIF 2.1.0, Gate policy 1.0, network opt-in, and provider budgets are unchanged.
+
 ## 1.0.2 — 2026-09-24
 
 ### Changed
