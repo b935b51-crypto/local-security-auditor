@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.0.4 — 2026-09-25
+
+### Changed
+
+- Collapsed exact semantic duplicate Findings, including nested `exec(compile(...))`, before public counts and remediation proposals. Distinct evidence and independent operations remain visible.
+- Linked specific command execution and generic process execution at the same sink as primary and supporting signals. Machine Findings remain distinct; the Gate still evaluates primary deterministic issues.
+- Added bounded, source-free context for test paths and statically proven stored-source lookups. These tags do not imply safety, trusted upstream input, or sandboxing.
+- Made dependency intelligence provenance auditable through assessed/unassessed exact records, fresh/stale cache keys, age, TTL, and actual provider request counts. Zero matches are described only within assessed coverage.
+- Distinguished disabled AI review from a requested review with no eligible subjects. Patch AI availability remains separate from finding review status.
+
+### Compatibility
+
+- This patch does not add detector scope or change JSON schema 1.1, SARIF 2.1.0, Gate policy 1.0, offline-first behavior, OSV/Gemini opt-in, or provider budgets.
+
 ## 1.0.3 — 2026-09-25
 
 ### Changed

@@ -1,8 +1,17 @@
 # Project Status
 
 - Last updated: 2026-09-25 (Asia/Taipei)
-- Current milestone: Finding Identity, Correlation & Provenance Hardening on the released 1.0.3 baseline; Phases 0–9 complete and Phase 10 not started
-- Status: **Source hardening validated; 1.0.4 patch preparation recommended.** This task did not bump the version, build a new distribution, tag, or push.
+- Current milestone: 1.0.4 patch preparation from Finding Identity, Correlation & Provenance Hardening; Phases 0–9 complete and Phase 10 not started
+- Status: **1.0.4 source, artifacts, installed golden behavior, and the explicitly authorized real-target OSV-enabled scan verified; READY TO TAG v1.0.4.** No tag, push, or publication occurred.
+
+## 1.0.4 patch preparation
+
+- Starting HEAD `2afc22f` on `main`; no tracked user edits. `pyproject.toml` is still the sole version source and now says 1.0.4. The release preparation changes version and documentation only; no production detector, Gate, cache, provider, GUI, or schema behavior changed.
+- Python 3.12.11 full offline suite: **247 tests, 241 passed, 0 failed, 6 skipped**. The project-local editable metadata was refreshed from 1.0.3 to 1.0.4 before testing; no target package was installed. Live provider gates remained off.
+- Two offline builds matched filenames, archive members, sizes, and SHA-256 exactly. Wheel: `local_security_auditor-1.0.4-py3-none-any.whl`, 187,855 bytes, SHA-256 `252e28216f054e57a3c31c0b017a4114a3163948f6a9950f45f97e8ede4c99d5`. Sdist: `local_security_auditor-1.0.4.tar.gz`, 138,121 bytes, SHA-256 `95f5f2956fa5060dea49e52041deeae779cb62c105e425d0c3636a38bd1c2cd2`. Inspection found no sensitive or private-path content. These remain ignored in `dist/`.
+- Fresh repo-external core wheel, Gemini-extra wheel, and sdist installs passed on Python 3.12.11. Installed CLI and metadata reported 1.0.4. Twenty source-path-free installed golden tests, four Gate tests, four additional AI status tests, and one fake-provider AI partial-state check passed. Synthetic source/wheel stable JSON fields matched; JSON 1.1, SARIF 2.1.0, zh-TW HTML/CSP, offline AI isolation, and Gate PASS/WARN/BLOCK were verified without live network.
+- The installed wheel scanned the Trading Platform `deep --offline --no-ai`: 21 machine Findings (0 Critical, 0 High, 4 Medium, 1 Low, 16 Info), 20 groups, 343 exact records assessed, 341 fresh cache hits, zero OSV/Gemini requests, all deterministic coverage COMPLETE, zero diagnostics, Gate WARN. The target Git HEAD and short status matched before/after. `.pytest-tmp` existed, but this snapshot was stable and fully covered.
+- After a separate explicit user authorization, a clean-installed 1.0.4 wheel ran the requested Trading Platform `deep --osv --no-ai` scan. `scan.offline=false`; inventory 344, first-party 1, exact 343, assessed 343, unassessed 0, fresh cache hits 341, stale 0, `NO_DATA` 0, advisory matches 0, actual OSV batch/detail/total requests 0, Gemini requests 0. All deterministic components and Overall were COMPLETE, diagnostics zero, Gate WARN. Findings remained 21 machine / 20 groups (0 Critical, 0 High, 4 Medium, 1 Low, 16 Info). Target HEAD remained `d789ceacf17807311819ed2d4c6c3058f37f2993`, but short status changed from 11 entries before to 14 immediately after and 16 on a later check as concurrent dashboard work continued. Exact before/after target equivalence could not be established; Auditor output was outside the target and no target write was intentionally performed. This target snapshot condition is not a scanner release blocker. Temporary scan report and clean environment were removed. No tag or push was made.
 
 ## Latest hardening validation
 

@@ -1,3 +1,37 @@
+# Local Security Auditor 1.0.4
+
+**1.0.4 is prepared locally and ready for an annotated tag after the release-preparation commit. No 1.0.4 tag, push, or publication is part of this preparation.**
+
+## Finding identity, correlation, and provenance patch
+
+Exact semantic duplicates now appear once in public Finding counts and remediation proposals. Nested `exec(compile(...))` is one dynamic-code operation; an independent `compile(...)` call remains visible. Findings with different evidence or different sinks remain distinct. At one sink, specific command execution is primary and generic process execution is supporting; both machine Findings remain available. The Gate still uses primary deterministic issues and retains policy 1.0.
+
+Test-file paths receive an additive context tag without suppressing a Finding. A `stored_source_lookup` tag requires bounded Python AST evidence of a local stored-source lookup. Neither tag establishes safe input or a sandbox; dynamic strategy code execution remains a security-sensitive behavior. Remote input retains its own source context.
+
+Dependency summaries now identify the OSV provider, assessed and unassessed exact dependency records, fresh and stale accepted cache lookup keys, cache age range and TTL when known, and actual network requests. A fresh, complete lookup can be assessed even if it has no advisory match; a stale or unavailable lookup remains incomplete. “No known vulnerability matches in assessed dependency coverage” is limited to the assessed data and is not a claim that the application has no vulnerabilities. Cache freshness and OSV knowledge constrain that statement.
+
+AI review remains optional and advisory. A requested review with zero eligible subjects reports `no_eligible_items`, rather than `complete`; disabled, partial, and failed states remain distinct. Patch AI availability is independent of finding review. AI cannot change deterministic Findings or the Gate.
+
+JSON schema 1.1, SARIF 2.1.0, Gate policy 1.0, the offline-first default, explicit OSV and Gemini choices, and provider budgets are unchanged. No new detector rule or Phase 10 patch application is included. Deep JavaScript/TypeScript SAST remains outside scope. Real symlink and UNC host validation is incomplete; remediation runtime tests remain `NOT_RUN`.
+
+Install the locally built 1.0.4 wheel in a clean Python `>=3.12,<3.13` environment. The optional `[gemini]` extra is separate. This document does not imply package-registry publication.
+
+## 1.0.4 validation
+
+Python 3.12.11 full offline regression passed **247 tests: 241 passed, 0 failed, 6 skipped**. Two offline builds produced identical filenames, member lists, sizes, and SHA-256 values. The wheel is `local_security_auditor-1.0.4-py3-none-any.whl` (187,855 bytes; SHA-256 `252e28216f054e57a3c31c0b017a4114a3163948f6a9950f45f97e8ede4c99d5`); the sdist is `local_security_auditor-1.0.4.tar.gz` (138,121 bytes; SHA-256 `95f5f2956fa5060dea49e52041deeae779cb62c105e425d0c3636a38bd1c2cd2`). Both report version 1.0.4 and Python `>=3.12,<3.13`. Archive inspection found no audit reports, cache, target copies, credentials, or private absolute path markers; the ordinary `.gitignore` in the sdist is not Git internal data.
+
+Fresh repo-external Python 3.12.11 core-wheel, wheel `[gemini]` (`google-genai` 2.25.0), and sdist installs passed. The installed CLI reported 1.0.4 and retained separate `--offline`, `--osv`, `--ai`, and `--no-ai` choices. Twenty installed-wheel golden tests passed for finding identity, correlation, dependency provenance, AI status, reports, and network isolation. Four additional installed-wheel Gate tests passed. A separate installed-wheel fake-provider check confirmed AI `partial` after one successful and one failed synthetic review; disabled, complete, failed, and budget-aborted states also passed installed tests. A synthetic source-versus-wheel comparison matched stable JSON fields; the installed wheel produced JSON 1.1, SARIF 2.1.0, static zh-TW HTML with CSP, and Gate PASS. The optional Gemini extra's offline AI-requested scan made no external request.
+
+The installed wheel scanned the Trading Platform at profile `deep` with `--offline --no-ai`: 21 machine Findings (0 Critical, 0 High, 4 Medium, 1 Low, 16 Info), 20 primary groups, all deterministic coverage COMPLETE, zero diagnostics, 343 exact records assessed, 341 fresh cache hits, zero OSV/Gemini requests, and Gate WARN. The nested dynamic-code operation retained one fingerprint; same-sink CMD/PROCESS Findings had primary/supporting roles. Target Git HEAD and short status were unchanged. `.pytest-tmp` existed in the target, but this snapshot did not produce incomplete coverage. This is a target snapshot, not a safety guarantee.
+
+After the user explicitly authorized this one bounded OSV check, a fresh clean-installed 1.0.4 wheel scanned the Trading Platform at profile `deep` with `--osv --no-ai`. `scan.offline` was `false`. Its dependency inventory had 344 records, one first-party root, 343 exact registry records, **343 assessed and zero unassessed**, 341 fresh cache hits, zero stale hits, zero `NO_DATA`, zero advisory matches, and **zero actual OSV batch/detail/total requests** because the cache was complete. Gemini use was zero. Discovery, Secrets, SAST, Behavior, Dependencies, Correlation, and Overall coverage were COMPLETE with no diagnostics; Gate 1.0 remained WARN for nonblocking primary Findings. Counts remained 21 machine Findings and 20 groups (0 Critical, 0 High, 4 Medium, 1 Low, 16 Info).
+
+The target Git HEAD was unchanged. Its short status changed from 11 entries immediately before the scan to 14 immediately after, then 16 on a later check, reflecting concurrent dashboard work. Exact before/after target equivalence therefore cannot be claimed. The Auditor wrote its report only to the external temporary directory and did not intentionally modify, execute, import, or install target code. The target's concurrent work is a snapshot limitation, not evidence of a scanner regression; the scan's reported coverage remained COMPLETE. The temporary validation environment and report were removed after aggregate results were recorded.
+
+## 1.0.3 release history
+
+The following 1.0.3 account is retained as historical validation evidence.
+
 # Local Security Auditor 1.0.3
 
 **1.0.3 is prepared locally for release validation. No 1.0.3 tag, push, or publication is part of this preparation.**

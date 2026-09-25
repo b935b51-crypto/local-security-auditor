@@ -34,7 +34,7 @@ HTML (`zh-TW`) shows the scope summary and at most 20 exclusion paths with escap
 
 Hardening #8 additively exposes `scanners[id=secrets].large_text` in JSON 1.1: the active `FULL_BUFFER`/`LARGE_TEXT_BOUNDED` modes, scanned and incomplete large-text file counts, bytes, segmented long lines, and incomplete long lines. Console and zh-TW HTML show bounded large-text coverage without source content. `SECRET_LARGE_TEXT_INCOMPLETE` is a fixed diagnostic with a redacted relative path; incomplete long-line rule context remains `PARTIAL`. A completed large-text file can coexist with other incomplete Secret artifacts, so the HTML message uses the large-text partial count rather than the whole scanner's status. The Gate continues to use canonical component coverage and unchanged policy 1.0.
 
-## Finding identity and provenance hardening (1.0.3 source; no version bump)
+## Finding identity and provenance hardening (included in 1.0.4)
 
 The report collapses only Findings with the same fingerprint **and** detector, rule, category, full location, source/sink, severity/confidence, CWE, structured evidence class, and dependency/advisory identity. A fingerprint reused for differing semantics remains a visible collision diagnostic and incomplete report coverage; distinct rule or sink signals are not silently removed. Direct `exec(compile(...))` / `eval(compile(...))` emits one dynamic-code capability signal at the outer operation. Standalone `compile()` remains visible. Remediation planning consumes final primary Findings, so an exact duplicate cannot create two equivalent proposal cards.
 
