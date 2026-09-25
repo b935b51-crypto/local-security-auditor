@@ -39,8 +39,8 @@ def assess(state: _State, findings: tuple[Finding, ...], coverage):
         group_id = _id("group-v1", primary.fingerprint)
         groups.append(FindingGroup(group_id, primary.fingerprint, members,
                                    tuple(sorted(rels.get(primary.fingerprint, ())))))
-        evidence = (EvidenceStrength.STRONG if supporting and primary.scanner_id == "sast"
-                    else EvidenceStrength.MODERATE if primary.scanner_id in {"sast", "dependencies"}
+        evidence = (EvidenceStrength.STRONG if supporting and primary.scanner_id in {"sast", "sast.python"}
+                    else EvidenceStrength.MODERATE if primary.scanner_id in {"sast", "sast.python", "dependencies"}
                     else EvidenceStrength.WEAK)
         correlated = EvidenceStrength.STRONG if supporting else EvidenceStrength.WEAK
         confidence = _minimum(primary.confidence, *(by_id[key].confidence for key in supporting))

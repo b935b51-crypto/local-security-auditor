@@ -17,8 +17,8 @@ def apply_rules(state: _State, limits: CorrelationLimits, locations, files, func
             state.notes["CORRELATION_LOCAL_BUCKET_LIMIT"] += 1
             state.aborted = True
             return
-        sasts = [f for f in bucket if f.scanner_id == "sast"]
-        behaviors = [f for f in bucket if f.scanner_id == "behavior"]
+        sasts = [f for f in bucket if f.scanner_id in {"sast", "sast.python"}]
+        behaviors = [f for f in bucket if f.scanner_id in {"behavior", "behavior.static"}]
         for sast in sasts:
             accepted = (_COMMAND_BEHAVIOR if sast.rule_id == "SAST.PYTHON.COMMAND_INJECTION"
                         else {"BEHAVIOR.DYNAMIC_CODE"} if sast.rule_id == "SAST.PYTHON.DYNAMIC_CODE_EXEC"
@@ -37,6 +37,17 @@ def apply_rules(state: _State, limits: CorrelationLimits, locations, files, func
                 continue
             for right in behaviors[index + 1:]:
                 if right.rule_id in _COMMAND_BEHAVIOR and left.rule_id != right.rule_id:
+                    generic = left if left.rule_id == "BEHAVIOR.PROCESS_EXEC" else right if right.rule_id == "BEHAVIOR.PROCESS_EXEC" else None
+                    specific = right if generic is left else left if generic is right else None
+                    if (generic is not None and specific is not None
+                            and generic.location.start_column == specific.location.start_column
+                            and generic.location.start_column is not None):
+                        state.add_edge(RelationshipType.SUPPORTS, _node(generic), _node(specific),
+                                       _minimum(generic.confidence, specific.confidence),
+                                       "CORRELATION.BEHAVIOR.SAME_SINK_SPECIFIC",
+                                       "A specific command signal and generic process signal share one sink location.",
+                                       ("same_file", "same_line", "same_column", "specific_operation"),
+                                       directed=True)
                     state.add_edge(RelationshipType.OVERLAPS, _node(left), _node(right),
                                    _minimum(left.confidence, right.confidence),
                                    "CORRELATION.BEHAVIOR.OVERLAP",

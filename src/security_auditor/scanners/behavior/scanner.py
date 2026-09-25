@@ -184,10 +184,12 @@ class BehaviorScanner:
             candidate_count += len(hits)
             for hit in hits:
                 rule = RULE_BY_ID[hit.rule_id]
+                evidence = (("behavior_type", hit.rule_id), ("detection", hit.detail))
+                if hit.context:
+                    evidence += (("dynamic_input", hit.context),)
                 findings.append(make_finding(rule, self.metadata.id, artifact.path,
                                              hit.line, hit.column, anchor=hit.rule_id,
-                                             evidence=(("behavior_type", hit.rule_id),
-                                                       ("detection", hit.detail)),
+                                             evidence=evidence,
                                              sink=hit.detail, confidence=hit.confidence))
                 if len(findings) >= self.limits.max_findings_total:
                     note("BEHAVIOR_MATCH_LIMIT_REACHED")

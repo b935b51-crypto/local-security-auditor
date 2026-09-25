@@ -71,6 +71,14 @@ def render(report: ScanReport, *, top: int = 20, verbose: bool = False) -> str:
     dep = view["summary"]["dependency"]
     lines.append(f"Dependency data: {dep['packages']} packages, {dep['exact_versions']} exact, "
                  f"{dep['no_data']} without advisory data, {dep['matches']} matches")
+    lines.append(f"Dependency intelligence: {dep['provider']}; "
+                 f"{dep['assessed_exact_versions']}/{dep['exact_versions']} exact versions assessed, "
+                 f"{dep['unassessed_exact_versions']} unassessed; "
+                 f"{dep['cache_hits']} cache hits "
+                 f"({dep['fresh_cache_hits']} fresh, {dep['stale_cache_hits']} stale), "
+                 f"{dep['queries']} live query keys")
+    if dep["matches"] == 0 and dep["assessed_exact_versions"]:
+        lines.append("No known vulnerability matches in assessed dependency coverage.")
     lines.append(f"OSV requests: {dep['batch_requests_used']} batch / {dep['detail_requests_used']} detail "
                  f"(total {dep['total_requests_used']}/{dep['total_requests_limit']}); "
                  f"budget {'reached' if dep['provider_budget_reached'] else 'not reached'}")

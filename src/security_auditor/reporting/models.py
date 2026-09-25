@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from enum import StrEnum
 import platform
@@ -95,6 +95,14 @@ class DependencySummary:
     advisories_truncated: int = 0
     advisory_limit: int = 0
     advisory_limit_reached: bool = False
+    provider: str = "OSV"
+    assessed_exact_versions: int = 0
+    unassessed_exact_versions: int = 0
+    fresh_cache_hits: int = 0
+    stale_cache_hits: int = 0
+    oldest_cache_age_seconds: int | None = None
+    newest_cache_age_seconds: int | None = None
+    cache_ttl_seconds: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,7 +147,26 @@ def _status(value: str) -> CoverageStatus:
     return {"complete": CoverageStatus.COMPLETE, "completed": CoverageStatus.COMPLETE,
             "partial": CoverageStatus.PARTIAL, "skipped": CoverageStatus.PARTIAL,
             "aborted": CoverageStatus.ABORTED, "failed": CoverageStatus.FAILED,
-            "disabled": CoverageStatus.DISABLED}.get(value, CoverageStatus.PARTIAL)
+            "disabled": CoverageStatus.DISABLED,
+            "no_eligible_items": CoverageStatus.DISABLED}.get(value, CoverageStatus.PARTIAL)
+
+
+def _test_context(path: str) -> bool:
+    parts = path.casefold().split("/")
+    name = parts[-1]
+    return (any(part in {"test", "tests"} for part in parts[:-1])
+            or ".test." in name or ".spec." in name)
+
+
+def _same_finding_identity(left: Finding, right: Finding) -> bool:
+    return (left.scanner_id, left.rule_id, left.category, left.location,
+            left.severity, left.confidence, left.source, left.sink,
+            left.evidence.kind, left.evidence.structured, left.cwe,
+            left.dependency, left.vulnerability) == (
+            right.scanner_id, right.rule_id, right.category, right.location,
+            right.severity, right.confidence, right.source, right.sink,
+            right.evidence.kind, right.evidence.structured, right.cwe,
+            right.dependency, right.vulnerability)
 
 
 def assemble_report(session: ScanSession, discovery: DiscoveryResult,
@@ -150,17 +177,23 @@ def assemble_report(session: ScanSession, discovery: DiscoveryResult,
     raw_findings = sorted((f for r in results for f in r.findings),
                           key=lambda f: (f.fingerprint, f.rule_id, f.location.path))
     findings_all: list[Finding] = []
-    seen: dict[str, Finding] = {}
+    seen: dict[str, list[Finding]] = {}
     collisions = 0
     for finding in raw_findings:
-        prior = seen.get(finding.fingerprint)
-        if prior is not None:
-            if (prior.rule_id, prior.scanner_id, prior.location) == (
-                    finding.rule_id, finding.scanner_id, finding.location):
-                continue
+        prior = seen.setdefault(finding.fingerprint, [])
+        if any(_same_finding_identity(existing, finding) for existing in prior):
+            continue
+        if prior:
             collisions += 1
-        else:
-            seen[finding.fingerprint] = finding
+        prior.append(finding)
+        context_tags = []
+        if _test_context(finding.location.path) and "context:test_code" not in finding.tags:
+            context_tags.append("context:test_code")
+        if (("dynamic_input", "stored_source_lookup") in finding.evidence.structured
+                and "context:stored_source_lookup" not in finding.tags):
+            context_tags.append("context:stored_source_lookup")
+        if context_tags:
+            finding = replace(finding, tags=finding.tags + tuple(context_tags))
         findings_all.append(finding)
     findings = tuple(findings_all[:MAX_FINDINGS])
     groups = tuple(sorted(correlation.groups, key=lambda g: g.id)[:MAX_GROUPS]) if correlation else ()
@@ -244,9 +277,15 @@ def assemble_report(session: ScanSession, discovery: DiscoveryResult,
             roles[fingerprint] = role.value
     lookups = dependency.lookups if dependency else ()
     metrics = dict(dependency.result.summary.details) if dependency and dependency.result.summary else {}
+    lookup_by_key = {lookup.key: lookup for lookup in lookups}
+    exact_records = tuple(record for record in dependency.inventory.records if record.key is not None) if dependency else ()
+    assessed = sum(bool(lookup := lookup_by_key.get(record.key)) and
+                   lookup.status in {LookupStatus.MATCHED, LookupStatus.NO_MATCH} and
+                   not lookup.incomplete and not lookup.stale for record in exact_records)
+    cache_hits = metrics.get("cache_hits", 0)
     dep_summary = DependencySummary(metrics.get("dependencies_discovered", 0),
                                     metrics.get("exact_dependencies", 0),
-                                    metrics.get("provider_queries", 0), metrics.get("cache_hits", 0),
+                                    metrics.get("provider_queries", 0), cache_hits,
                                     sum(l.status in {LookupStatus.NO_DATA, LookupStatus.OFFLINE_NO_CACHE,
                                                      LookupStatus.QUERY_FAILED} for l in lookups),
                                     metrics.get("vulnerability_matches", 0),
@@ -264,7 +303,13 @@ def assemble_report(session: ScanSession, discovery: DiscoveryResult,
                                     metrics.get("advisories_accepted", 0),
                                     metrics.get("advisories_truncated", 0),
                                     metrics.get("advisory_limit", 0),
-                                    bool(metrics.get("advisory_limit_reached", 0)))
+                                    bool(metrics.get("advisory_limit_reached", 0)),
+                                    "OSV", assessed, len(exact_records) - assessed,
+                                    cache_hits - metrics.get("stale_cache_hits", 0),
+                                    metrics.get("stale_cache_hits", 0),
+                                    metrics.get("oldest_cache_age_seconds") if cache_hits else None,
+                                    metrics.get("newest_cache_age_seconds") if cache_hits else None,
+                                    metrics.get("cache_ttl_seconds", 0))
     return ScanReport(SCHEMA_VERSION, "Local Security Auditor", __version__, session.id,
                       started_at, completed_at, max(0.0, duration_seconds),
                       session.target.display_name, session.profile.value, session.offline,

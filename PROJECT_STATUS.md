@@ -1,8 +1,14 @@
 # Project Status
 
 - Last updated: 2026-09-25 (Asia/Taipei)
-- Current milestone: 1.0.3 Secret Source-Awareness precision patch prepared from `ffa72aa`; Phases 0–9 complete and Phase 10 not started
-- Status: **1.0.3 READY TO TAG after the local release-preparation commit.** Fresh wheel/sdist and clean-installed behavior contain the source-awareness change. No 1.0.3 tag, push, or publication occurred.
+- Current milestone: Finding Identity, Correlation & Provenance Hardening on the released 1.0.3 baseline; Phases 0–9 complete and Phase 10 not started
+- Status: **Source hardening validated; 1.0.4 patch preparation recommended.** This task did not bump the version, build a new distribution, tag, or push.
+
+## Latest hardening validation
+
+- Starting HEAD: `1fbe2bc` on `main`. Direct `exec(compile(...))` now yields one `BEHAVIOR.DYNAMIC_CODE` signal; the retained outer fingerprint is stable. Exact report dedup compares full semantic identity and keeps differing evidence visible with a collision diagnostic. A same-location production `behavior.static` CMD signal is primary and PROCESS is supporting in the existing group model; machine Finding count semantics and Gate 1.0 remain unchanged.
+- Test-file paths add a context tag without suppression. A stored-source lookup tag requires bounded Python AST structure and does not claim trusted upstream provenance or sandboxing. Dependency reports add OSV assessed/unassessed record counts, cache freshness ages and TTL, while distinguishing fresh/stale cache keys and actual request usage. Requested AI with zero eligible work reports `no_eligible_items`; remediation `PATCH_AI_UNAVAILABLE` remains separate.
+- Python 3.12.11 full offline suite: **246 tests, 240 passed, 0 failed, 6 skipped**; live provider gates stayed disabled. One stable Trading Platform deep `--osv --no-ai` source snapshot had **21 machine Findings** (0 Critical, 0 High, 4 Medium, 1 Low, 16 Info), **20 primary groups**, deterministic coverage COMPLETE, diagnostics zero, Gate WARN. Dependency inventory 344 / exact 343 / first-party 1; **343 assessed, 0 unassessed, 341 fresh cache hits, 0 OSV and 0 Gemini requests, 0 known advisory matches**. A subsequent scan during target test activity retained those Findings and cache counts but became PARTIAL / Gate BLOCK because `.pytest-tmp` contained a skipped symlink and Python parse failures. This is a real coverage difference in the changing target snapshot, not a Gate change. Target Git short status was identical immediately before and after each final scan. No target code was executed, imported, installed, or modified by Auditor.
 
 ## Implemented
 

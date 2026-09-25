@@ -70,6 +70,10 @@ def render(report: ScanReport) -> str:
     for finding in data["findings"]:
         loc = finding["location"]
         where = (loc["path"] or "unknown") + (f":{loc['start_line']}" if loc["start_line"] else "")
+        supporting = finding["role"] == "supporting"
+        if supporting:
+            out.append(f"<details><summary>{_m('supporting')}：{_e(finding['title'])} "
+                       f"<code>{_e(where)}</code></summary>")
         out.extend(['<article class="card">', f"<h3>{_e(finding['title'])}</h3>",
                     f"<p>{_m('severity')}：<strong>{_v(finding['severity'])}</strong> · "
                     f"{_m('confidence')}：{_v(finding['confidence'])} · "
@@ -81,12 +85,18 @@ def render(report: ScanReport) -> str:
                     f"<p>{_m('evidence')}：{_e(finding['evidence']['summary'])}</p>",
                     f"<p>CWE/CVE：{_e(', '.join(finding['cwe'] + finding['cve']) or message('none'))}</p>",
                     f"<p>{_m('remediation')}：{_e(finding['remediation']['recommendation'])}</p>"])
+        if "context:test_code" in finding["tags"]:
+            out.append(f"<p>{_m('test_context_note')}</p>")
+        if "context:stored_source_lookup" in finding["tags"]:
+            out.append(f"<p>{_m('stored_source_note')}</p>")
         if finding["remediation_proposal_id"]:
             out.append(f"<p>{_m('related_proposal')}：{_e(finding['remediation_proposal_id'])}</p>")
         if finding["ai_review"]:
             out.append(f"<p>{_m('ai')}：{_v(finding['ai_review']['verdict'])} "
                        f"({_v(finding['ai_review']['confidence'])})</p>")
         out.append("</article>")
+        if supporting:
+            out.append("</details>")
     out.append(f"</section><section><h2>{_m('groups')}</h2>")
     findings_by_fingerprint = {item["fingerprint"]: item for item in data["findings"]}
     attack_path_members = {fingerprint for path in data["attack_paths"]
@@ -101,14 +111,35 @@ def render(report: ScanReport) -> str:
         location = primary["location"]
         where = (location["path"] or "") + (
             f":{location['start_line']}" if location["start_line"] else "")
-        out.append(f"<p>{_m('primary')}：{_e(primary['title'])} "
-                   f"<code>{_e(where)}</code>；{_e(supporting)} {_m('supporting')}</p>")
+        out.append(f"<details><summary>{_m('primary')}：{_e(primary['title'])} "
+                   f"<code>{_e(where)}</code>；{_e(supporting)} {_m('supporting')}</summary>")
+        for member in group["members"]:
+            if member["role"] == "supporting":
+                signal = findings_by_fingerprint.get(member["fingerprint"])
+                if signal:
+                    out.append(f"<p>{_m('supporting')}：{_e(signal['title'])} "
+                               f"<code>{_e(signal['rule_id'])}</code></p>")
+        out.append("</details>")
     out.append(f"</section><section><h2>{_m('attack_paths')}</h2>")
     for path in data["attack_paths"]:
         out.append(f"<details><summary>{_v(path['title'])} ({_v(path['confidence'])})</summary>"
                    f"<p>{_e(path['rationale'])}</p></details>")
     dependency = data["summary"]["dependency"]
+    freshness = (f"{_e(dependency['newest_cache_age_seconds'])}–"
+                 f"{_e(dependency['oldest_cache_age_seconds'])} s"
+                 if dependency["cache_hits"] else _m("none"))
     out.append(f"</section><section><h2>{_m('dependencies')}</h2>"
+               f"<h3>{_m('dependency_intelligence')}</h3>"
+               f"<p>Provider: {_e(dependency['provider'])}；"
+               f"{_m('assessed_exact')}：{_e(dependency['assessed_exact_versions'])} / "
+               f"{_e(dependency['exact_versions'])}；"
+               f"{_m('unassessed_exact')}：{_e(dependency['unassessed_exact_versions'])}</p>"
+               f"<p>Cache hits: {_e(dependency['cache_hits'])} "
+               f"(fresh {_e(dependency['fresh_cache_hits'])}, "
+               f"stale {_e(dependency['stale_cache_hits'])})；"
+               f"Network query keys: {_e(dependency['queries'])}；"
+               f"{_m('cache_freshness')}：{freshness} "
+               f"(TTL {_e(dependency['cache_ttl_seconds'])} s)</p>"
                f"<p>{_m('packages')}：{_e(dependency['packages'])}；"
                f"{_m('exact_versions')}：{_e(dependency['exact_versions'])}；"
                f"{_m('first_party_roots')}：{_e(dependency['first_party_roots'])}；"
@@ -121,6 +152,8 @@ def render(report: ScanReport) -> str:
                f"{_e(dependency['detail_requests_limit'])}；"
                f"{_m('total')} {_e(dependency['total_requests_used'])} / "
                f"{_e(dependency['total_requests_limit'])}</p>")
+    if dependency["matches"] == 0 and dependency["assessed_exact_versions"]:
+        out.append(f"<p>{_m('known_matches_none')}</p>")
     if dependency['provider_budget_reached']:
         out.append(f"<p class='coverage incomplete'><strong>{_m('osv_budget_warning')}</strong></p>")
     if dependency['advisory_limit_reached']:

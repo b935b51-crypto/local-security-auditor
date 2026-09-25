@@ -16,6 +16,7 @@ Edges carry stable type, source and target, confidence, fixed evidence labels, r
 | --- | --- | --- |
 | `CORRELATION.SAST_BEHAVIOR.SAME_SINK` | Compatible SAST/behavior rules on the same file and line | Behavior supports the SAST primary finding; behavior severity is not added |
 | `CORRELATION.BEHAVIOR.OVERLAP` | Shell/process/command behavior on one file and line | Overlapping descriptions of one local operation |
+| `CORRELATION.BEHAVIOR.SAME_SINK_SPECIFIC` | `PROCESS_EXEC` and a more specific shell/CMD/PowerShell signal at the same file, line, and column | Specific command signal is PRIMARY; generic process signal is SUPPORTING. A different call on the same line remains separate. |
 | `CORRELATION.SECRET.NETWORK_CONTEXT` | Same file within configured line distance or explicit same function | Context only; LOW for proximity, MEDIUM for structured same function; no exfiltration claim |
 | `CORRELATION.DEPENDENCY.PROJECT_REFERENCE` | PyPI distribution name exactly equals an explicit normalized Python import name | Dependency appears referenced; no vulnerable API reachability claim |
 | `CORRELATION.BEHAVIOR.LOCAL_SEQUENCE` | Explicit same function, ordered network then process operation within distance | LOW confidence contextual sequence, not a download-execute flow |
@@ -30,6 +31,8 @@ The import-reference rule requires an `import_reference` normalized finding with
 ## Grouping and confidence
 
 `FindingGroup` records PRIMARY/SUPPORTING roles and support-edge IDs. Same-sink SAST is primary; compatible behavior is supporting. All original findings remain accessible and unchanged. A behavior signal supporting a SAST finding is not separately summed into that group's priority. Secret and dependency relevance edges remain contextual and do not change the original severity or confidence.
+
+The current production scanner IDs are `sast.python` and `behavior.static`; correlation accepts those IDs and the earlier synthetic aliases used by contract tests. Grouping does not delete the underlying machine findings or add their severities. The JSON 1.1 `summary.counts.severity` and `total_findings` still count all distinct final Findings; `finding_groups` is the separate primary-issue view. The Gate continues to evaluate primary roles under policy 1.0. Group membership expresses a static same-sink relation, not runtime exploitability.
 
 Edge confidence is no higher than the weakest participating finding. Correlation assessment confidence starts from the primary finding and its direct support, then is capped at MEDIUM when any supplied scanner or correlation coverage is incomplete. A LOW proximity edge does not become a HIGH-confidence exploit claim. `AttackPathCandidate` includes assumptions and limitations and is never labeled confirmed.
 

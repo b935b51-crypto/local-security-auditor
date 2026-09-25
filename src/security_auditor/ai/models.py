@@ -32,6 +32,7 @@ class ContextStatus(StrEnum):
 
 class AIReviewStatus(StrEnum):
     DISABLED = "disabled"
+    NO_ELIGIBLE_ITEMS = "no_eligible_items"
     COMPLETE = "complete"
     PARTIAL = "partial"
     ABORTED = "aborted"

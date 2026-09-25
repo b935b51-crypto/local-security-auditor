@@ -310,6 +310,7 @@ class DependencyScanner:
 
         lookups: dict[tuple[str, str, str], LookupResult] = {}
         cache_hits = stale_hits = provider_queries = provider_failures = 0
+        cache_ages: list[int] = []
         provider_state = ProviderScanState()
         keys = inventory.exact_keys()
         if len(keys) > self.vulnerability.max_queries:
@@ -336,6 +337,8 @@ class DependencyScanner:
                     note("DEPENDENCY_CACHE_CORRUPT"); cached = None
             if cached and (session.offline or not cached.stale):
                 lookups[key] = cached; cache_hits += 1
+                if cached.cache_age_seconds is not None:
+                    cache_ages.append(cached.cache_age_seconds)
                 if cached.stale:
                     stale_hits += 1; note("DEPENDENCY_CACHE_STALE")
             elif session.offline or not self.vulnerability.enabled:
@@ -432,6 +435,9 @@ class DependencyScanner:
                                             for r in inventory_records)),
             ("unique_package_versions", len(keys)), ("cache_hits", cache_hits),
             ("stale_cache_hits", stale_hits), ("provider_queries", provider_queries),
+            ("oldest_cache_age_seconds", max(cache_ages, default=0)),
+            ("newest_cache_age_seconds", min(cache_ages, default=0)),
+            ("cache_ttl_seconds", self.vulnerability.cache_ttl_seconds),
             ("provider_failures", provider_failures), ("vulnerability_matches", len(findings)),
             ("batch_requests_used", provider_state.batch_requests),
             ("batch_requests_limit", self.vulnerability.max_total_batch_requests),

@@ -3,6 +3,13 @@
 HTML_LOCALE = "zh-TW"
 
 MESSAGES = {
+    "test_context_note": "此訊號位於測試程式碼；請確認值或操作是否僅供測試，不能僅憑路徑判定安全。",
+    "stored_source_note": "動態執行從物件儲存的來源透過本地查表取得；掃描器未證明上游來源可信，這不是沙箱。",
+    "dependency_intelligence": "依賴漏洞情報來源",
+    "assessed_exact": "已取得情報的精確版本",
+    "unassessed_exact": "尚無完整情報的精確版本",
+    "cache_freshness": "快取新鮮度",
+    "known_matches_none": "在已取得情報的依賴範圍中，未找到已知漏洞比對。",
     "large_text_complete": "大型文字檔已使用有界分塊模式完成分析。",
     "large_text_partial": "部分大型文字內容因安全資源或規則限制未完成分析。",
     "large_text_files": "大型文字檔數",
@@ -84,6 +91,7 @@ MESSAGES = {
 }
 
 VALUES = {
+    "no_eligible_items": "無符合 AI 審查條件的項目",
     "COMPLETE": "完整", "PARTIAL": "部分完成", "ABORTED": "已中止", "FAILED": "失敗",
     "DISABLED": "未啟用", "complete": "完整", "partial": "部分完成",
     "aborted": "已中止", "failed": "失敗", "disabled": "未啟用",

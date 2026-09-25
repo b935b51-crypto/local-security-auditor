@@ -137,6 +137,7 @@ class LookupResult:
     stale: bool = False
     diagnostic: str | None = None
     incomplete: bool = False
+    cache_age_seconds: int | None = None  # local provenance only; never sent to OSV
 
 
 def reconcile(records: list[DependencyRecord]) -> tuple[DependencyRecord, ...]:

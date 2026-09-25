@@ -101,7 +101,8 @@ class AIReviewer:
         if available > len(selected):
             notes["AI_REVIEW_LIMIT_REACHED"] += 1
         if not selected:
-            return finish(AIReviewStatus.COMPLETE, 0)
+            notes["AI_NO_ELIGIBLE_ITEMS"] += 1
+            return finish(AIReviewStatus.NO_ELIGIBLE_ITEMS, 0)
         # A trusted tool directory is distinct from the target root. If scanning
         # this tool itself, the target .env is never treated as a credential.
         directory = tool_config_dir or Path(__file__).resolve().parents[3]

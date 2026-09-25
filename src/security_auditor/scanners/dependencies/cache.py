@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -74,7 +75,8 @@ class VulnerabilityCache:
             if not isinstance(obj, dict) or obj.get("schema") != SCHEMA or obj.get("key") != list(key):
                 raise ValueError()
             fetched = obj.get("fetched_at")
-            if type(fetched) not in (int, float) or fetched < 0 or fetched > time.time() + 300:
+            if (type(fetched) not in (int, float) or not math.isfinite(fetched)
+                    or fetched < 0 or fetched > time.time() + 300):
                 raise ValueError()
             status = LookupStatus(obj["status"])
             if status not in {LookupStatus.MATCHED, LookupStatus.NO_MATCH}:
@@ -105,8 +107,11 @@ class VulnerabilityCache:
                             (not isinstance(vuln.cvss_vector, str) or len(vuln.cvss_vector) > 200))):
                     raise ValueError()
                 vulns.append(vuln)
-            stale = time.time() - fetched > ttl_seconds
-            return LookupResult(key, status, tuple(vulns), stale)
+            elapsed = max(0.0, time.time() - fetched)
+            age = int(elapsed)
+            stale = elapsed > ttl_seconds
+            return LookupResult(key, status, tuple(vulns), stale,
+                                cache_age_seconds=age)
         except (OSError, ValueError, TypeError, KeyError):
             raise CacheError("DEPENDENCY_CACHE_CORRUPT") from None
 

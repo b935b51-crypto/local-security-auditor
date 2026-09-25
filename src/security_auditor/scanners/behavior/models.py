@@ -13,6 +13,7 @@ class BehaviorHit:
     column: int
     detail: str  # fixed vocabulary only
     confidence: Confidence = Confidence.HIGH
+    context: str | None = None  # fixed structural vocabulary; never source text
 
 
 @dataclass(slots=True)

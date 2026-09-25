@@ -56,10 +56,25 @@ class CorrelationTests(unittest.TestCase):
         self.assertEqual(output.assessments[0].base_severity, Severity.HIGH)
         self.assertEqual(output.assessments[0].priority, RiskPriority.HIGH)
         self.assertEqual(sum(e.relationship_type is RelationshipType.SUPPORTS
-                             for e in output.graph.edges), 2)
+                             for e in output.graph.edges), 3)
+        self.assertTrue(any(e.rule_id == "CORRELATION.BEHAVIOR.SAME_SINK_SPECIFIC"
+                            for e in output.graph.edges))
         self.assertTrue(any(e.relationship_type is RelationshipType.SOURCE_TO_SINK
                             for e in output.graph.edges))
         self.assertEqual(output.assessments[0].exposure_signal.value, "external_input")
+
+    def test_specific_command_groups_same_sink_but_not_different_call(self):
+        process = finding("BEHAVIOR.PROCESS_EXEC", "behavior.static", "tests/unit/test_runtime.py", 3)
+        command = finding("BEHAVIOR.CMD_EXEC", "behavior.static", "tests/unit/test_runtime.py", 3,
+                          Severity.MEDIUM)
+        grouped = CorrelationEngine().correlate((result("behavior.static", process, command),))
+        self.assertEqual(len(grouped.groups), 1)
+        self.assertEqual(grouped.groups[0].primary, command.fingerprint)
+        self.assertIn((process.fingerprint, FindingRole.SUPPORTING), grouped.groups[0].members)
+        separate = replace(command, location=Location(command.location.path, 3, 20))
+        ungrouped = CorrelationEngine().correlate((result("behavior.static", process, separate),))
+        self.assertEqual(len(ungrouped.groups), 2)
+        self.assertTrue(all(len(group.members) == 1 for group in ungrouped.groups))
 
     def test_false_cross_file_download_chain_and_local_pattern(self):
         network = finding("BEHAVIOR.NETWORK_REQUEST", "behavior", "a.py", 10)

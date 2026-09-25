@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+from collections import Counter
 
 from security_auditor.core.models import Confidence
 from security_auditor.scanners.sast.python.frontend import import_aliases, literal_string, qualified_name, keyword_value
@@ -65,11 +66,13 @@ def scan_python_behavior(tree: ast.Module) -> tuple[BehaviorHit, ...]:
     hits: list[BehaviorHit] = []
 
     def emit(rule: str, node: ast.AST, detail: str = "python_ast",
-             confidence: Confidence = Confidence.HIGH) -> None:
+             confidence: Confidence = Confidence.HIGH,
+             context: str | None = None) -> None:
         hits.append(BehaviorHit(f"BEHAVIOR.{rule}", getattr(node, "lineno", 1),
-                                getattr(node, "col_offset", 0) + 1, detail, confidence))
+                                getattr(node, "col_offset", 0) + 1, detail, confidence, context))
 
-    def scope(statements: list[ast.stmt], inherited: dict[str, str]) -> None:
+    def scope(statements: list[ast.stmt], inherited: dict[str, str],
+              stored_sources: frozenset[str] = frozenset()) -> None:
         aliases = import_aliases(statements, inherited)
         nodes: list[ast.AST] = []
         nested: list[ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef] = []
@@ -86,6 +89,21 @@ def scan_python_behavior(tree: ast.Module) -> tuple[BehaviorHit, ...]:
                 stack.append(child)
         calls = sorted((node for node in nodes if isinstance(node, ast.Call)),
                        key=lambda item: (item.lineno, item.col_offset))
+        bindings = Counter(node.id for node in nodes
+                           if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store))
+        local_sources = frozenset(
+            target.id for item in nodes if isinstance(item, ast.Assign)
+            for target in item.targets if isinstance(target, ast.Name)
+            if isinstance(item.value, ast.Call)
+            and qualified_name(item.value.func, aliases) in {"dict", "builtins.dict"}
+            and len(item.value.args) == 1
+            and isinstance(item.value.args[0], ast.Attribute)
+            and isinstance(item.value.args[0].value, ast.Name)
+            and item.value.args[0].value.id == "self"
+            and item.value.args[0].attr == "sources"
+            and bindings[target.id] == 1
+        )
+        stored_sources = frozenset(name for name in stored_sources if bindings[name] == 0) | local_sources
         local = LocalCorrelation()
         for node in nodes:
             if isinstance(node, ast.Attribute) and qualified_name(node, aliases) == "os.environ":
@@ -130,7 +148,26 @@ def scan_python_behavior(tree: ast.Module) -> tuple[BehaviorHit, ...]:
                                  for part in ast.walk(flags)):
                     emit("HIDDEN_PROCESS", call)
             if name in DYNAMIC:
-                emit("DYNAMIC_CODE", call)
+                parent = parents.get(id(call))
+                # compile() used directly as the argument of exec/eval is one
+                # execution operation. A standalone compile() remains visible.
+                if name in {"compile", "builtins.compile"} and isinstance(parent, ast.Call) and (
+                    qualified_name(parent.func, aliases) in {"exec", "eval", "builtins.exec", "builtins.eval"}
+                    and call in parent.args
+                ):
+                    pass
+                else:
+                    context = None
+                    if name in {"exec", "builtins.exec", "eval", "builtins.eval"} and call.args:
+                        value = call.args[0]
+                        if isinstance(value, ast.Call) and qualified_name(value.func, aliases) in {
+                            "compile", "builtins.compile"
+                        } and value.args:
+                            value = value.args[0]
+                        if (isinstance(value, ast.Subscript) and isinstance(value.value, ast.Name)
+                                and value.value.id in stored_sources):
+                            context = "stored_source_lookup"
+                    emit("DYNAMIC_CODE", call, context=context)
             if name in NETWORK or (name and name.endswith(".connect") and name.startswith("socket")):
                 emit("NETWORK_REQUEST", call)
                 parent = parents.get(id(call))
@@ -160,7 +197,13 @@ def scan_python_behavior(tree: ast.Module) -> tuple[BehaviorHit, ...]:
                 if path and _sensitive_path(path):
                     emit("CREDENTIAL_ACCESS", call)
         for item in nested:
-            scope(item.body, aliases)
+            parameters = set()
+            if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                parameters = {arg.arg for arg in (*item.args.posonlyargs, *item.args.args,
+                                                  *item.args.kwonlyargs)}
+                parameters.update(arg.arg for arg in (item.args.vararg, item.args.kwarg)
+                                  if arg is not None)
+            scope(item.body, aliases, stored_sources - parameters)
 
     scope(tree.body, {})
     unique = {(hit.rule_id, hit.line, hit.column): hit for hit in hits}
