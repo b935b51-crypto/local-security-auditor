@@ -2,7 +2,7 @@
 
 Local Security Auditor Finding Identity, Correlation & Provenance Hardening is complete on the released **1.0.3** source baseline. Starting HEAD was `1fbe2bc` on `main`. This task made no version bump, distribution build, tag, push, or Phase 10 change. The recommended next separate task is 1.0.4 patch preparation.
 
-Python 3.12.11 full offline regression: **246 tests, 240 passed, 0 failed, 6 skipped**. Live OSV/Gemini tests were not enabled. JSON 1.1, SARIF 2.1.0, and Gate policy 1.0 remain unchanged.
+Python 3.12.11 full offline regression: **247 tests, 241 passed, 0 failed, 6 skipped**. Live OSV/Gemini tests were not enabled. JSON 1.1, SARIF 2.1.0, and Gate policy 1.0 remain unchanged.
 
 Directly nested `exec(compile(...))` is one dynamic-code operation, while standalone compile remains visible. Report dedup requires matching fingerprint and full semantic identity; differing evidence is not silently discarded. The production `behavior.static` / `sast.python` scanner IDs now participate in correlation. Same-location specific command behavior is primary and generic process behavior supporting. Test context is an additive path-shape tag, never a suppression. The dynamic input tag proves only a bounded stored-source AST lookup; it does not assert upstream trust or sandboxing.
 

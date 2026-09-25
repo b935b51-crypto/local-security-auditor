@@ -238,6 +238,15 @@ class FindingIdentityTests(unittest.TestCase):
             self.session, (scanner,), allow_online_ai=True)
         self.assertEqual(disabled.summary.status, AIReviewStatus.DISABLED)
 
+    def test_patch_ai_unavailable_does_not_change_review_status(self):
+        finding = make_finding(RULE, "behavior.static", "app.py", 2, 5, anchor="exec")
+        report = self._report(finding)
+        settings = replace(AuditConfig().remediation, enabled=True)
+        batch = RemediationPlanner(settings, AuditConfig().sast).plan(
+            report, ai_remediation=True)
+        self.assertIn("PATCH_AI_UNAVAILABLE", batch.diagnostics)
+        self.assertEqual(report.ai_status, "disabled")
+
 
 if __name__ == "__main__":
     unittest.main()
