@@ -131,6 +131,8 @@ class FindingIdentityTests(unittest.TestCase):
         sarif_results = json.loads(sarif.render(report))["runs"][0]["results"]
         self.assertEqual({item["properties"]["role"] for item in sarif_results},
                          {"primary", "supporting"})
+        self.assertEqual(len({item["properties"]["findingGroupId"]
+                              for item in sarif_results}), 1)
 
     def test_nested_compile_is_one_dynamic_operation_with_bounded_context(self):
         source = ("class Snapshot:\n"

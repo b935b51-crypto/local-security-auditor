@@ -14,6 +14,9 @@ SCHEMA = "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sar
 def render(report: ScanReport) -> str:
     view = report_view(report)
     rules = {}
+    group_by_fingerprint = {member["fingerprint"]: group["id"]
+                            for group in view["finding_groups"]
+                            for member in group["members"]}
     for rule in view["rules"]:
         rules[rule["id"]] = {"id": rule["id"], "shortDescription": {"text": rule["title"]},
                              "properties": {"tags": ["security"]}}
@@ -33,6 +36,8 @@ def render(report: ScanReport) -> str:
                                "category": finding["category"], "role": finding["role"],
                                "riskPriority": finding["risk_priority"],
                                "aiAdvisory": finding["ai_review"]}}
+        if group_id := group_by_fingerprint.get(finding["fingerprint"]):
+            item["properties"]["findingGroupId"] = group_id
         path = finding["location"]["path"]
         if path and path != "[UNSAFE PATH]":
             physical = {"artifactLocation": {"uri": quote(path, safe="/")}}
