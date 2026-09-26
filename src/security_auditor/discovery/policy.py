@@ -13,7 +13,7 @@ from security_auditor.core.config import (
     HARD_MAX_SNIFF_BYTES, HARD_MAX_TOTAL_BYTES,
 )
 from security_auditor.core.scope import (
-    ExclusionReason, ScopeClass, classify_default_pattern,
+    DEFAULT_SCOPE_FILES, ExclusionReason, ScopeClass, classify_default_pattern,
 )
 
 
@@ -88,7 +88,12 @@ class DiscoveryPolicy:
         if self.included(path, is_directory=is_directory):
             return None
         for pattern in self.default_exclude:
-            if pattern_matches(pattern, path, is_directory=is_directory):
+            file_pattern = any(pattern == name for names in DEFAULT_SCOPE_FILES.values()
+                               for name in names)
+            if file_pattern and is_directory:
+                continue
+            candidate = path.replace("\\", "/").rsplit("/", 1)[-1] if file_pattern else path
+            if pattern_matches(pattern, candidate, is_directory=is_directory):
                 return classify_default_pattern(pattern)
         if any(pattern_matches(p, path, is_directory=is_directory) for p in self.exclude):
             return ScopeClass.UNKNOWN, ExclusionReason.EXCLUDED_USER_POLICY

@@ -40,7 +40,7 @@ DEFAULT_SCOPE_DIRECTORIES: dict[ScopeClass, tuple[str, ...]] = {
 }
 
 DEFAULT_SCOPE_FILES: dict[ScopeClass, tuple[str, ...]] = {
-    ScopeClass.GENERATED: (".coverage", "coverage.xml"),
+    ScopeClass.GENERATED: (".coverage", "coverage.xml", "*.tsbuildinfo"),
 }
 
 DEFAULT_EXCLUDE = tuple(

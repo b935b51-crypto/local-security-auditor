@@ -1,8 +1,14 @@
 # Project Status
 
-- Last updated: 2026-09-25 (Asia/Taipei)
-- Current milestone: 1.0.4 patch preparation from Finding Identity, Correlation & Provenance Hardening; Phases 0–9 complete and Phase 10 not started
-- Status: **1.0.4 source, artifacts, installed golden behavior, and the explicitly authorized real-target OSV-enabled scan verified; READY TO TAG v1.0.4.** No tag, push, or publication occurred.
+- Last updated: 2026-09-26 (Asia/Taipei)
+- Current milestone: 1.0.5 maintenance scope fix; Phases 0–9 complete and Phase 10 not started
+- Status: **Source-only `*.tsbuildinfo` default generated-metadata exclusion validated; READY FOR 1.0.5 PATCH PREPARATION.** The package version remains 1.0.4, and 1.0.5 artifacts have not been prepared. The existing 1.0.4 release history remains below. No tag or push occurred in this maintenance task.
+
+## 1.0.5 TypeScript build metadata maintenance
+
+- Starting HEAD `24adc5e` on `main`, with no tracked user edits. Pre-existing untracked audit reports and `uv.lock` were preserved. The only production changes add `*.tsbuildinfo` to the trusted generated-file defaults and apply built-in file patterns to basenames only. Discovery excludes these files before admission with `GENERATED` / `EXCLUDED_DEFAULT_GENERATED`; trusted explicit include can reopen a named file. No version, Secret limits, Gate policy, provider, GUI, or `--force` semantics changed.
+- Python 3.12.11 final full offline suite: 254 tests, 248 passed, 0 failed, 6 skipped. Synthetic tests cover basename/nested/Windows case matching, TS/TSX/JS/JSX controls, `.gitignore` absence/ignore/negation, trusted include, long-line Secret budget isolation, structured JSON scope, COMPLETE/Gate PASS, `--force`, and existing directory classes.
+- StockDashboard read-only baseline used the production Discovery API: without the new default pattern, root `tsconfig.tsbuildinfo` was admitted; with it, the file was excluded under the new generated reason. `.next` and `node_modules` versions were already pruned by directory policy. Current Discovery admitted 235 `.ts` and 49 `.tsx` artifacts. An offline/no-AI source CLI scan reported Discovery and Secrets COMPLETE; Dependencies and Overall PARTIAL and Gate BLOCK due to `DEPENDENCY_CACHE_STALE`, unrelated to this scope exclusion. The target Git HEAD `8cddd199e9d3a46302727a04f24bfa2e9d4350ad` and empty short status matched before and after. Temporary report was removed.
 
 ## 1.0.4 patch preparation
 

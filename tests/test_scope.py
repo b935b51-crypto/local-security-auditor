@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+from contextlib import redirect_stderr
 from dataclasses import replace
+from io import StringIO
 import os
 from pathlib import Path
 import sys
@@ -13,6 +15,7 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from security_auditor.core.config import AuditConfig, DiscoveryLimits
+from security_auditor.cli.main import main
 from security_auditor.core.models import ScanProfile, ScanTarget
 from security_auditor.discovery.models import ScanCompleteness
 from security_auditor.discovery.policy import DiscoveryPolicy
@@ -63,6 +66,107 @@ class ScopeTests(unittest.TestCase):
         self.assertEqual(len(result.exclusions), 11)
         self.assertTrue(all(not item.path.startswith(("/", "C:")) for item in result.exclusions))
         self.assertIn("EXCLUDED_DEFAULT_CACHE", {item.reason.value for item in result.exclusions})
+
+    def test_typescript_build_metadata_is_file_level_generated_scope(self):
+        for name in ("foo.tsbuildinfo", "nested/path/tsconfig.tsbuildinfo",
+                     "apps/dashboard/.tsbuildinfo"):
+            self.write(name, "generated metadata\n")
+        for name in ("foo.ts", "foo.tsx", "foo.js", "foo.jsx",
+                     "directory.tsbuildinfo/real.ts"):
+            self.write(name, "export const value = 1;\n")
+        result = self.scan()
+        excluded = {entry.path: entry for entry in result.exclusions}
+        for name in ("foo.tsbuildinfo", "nested/path/tsconfig.tsbuildinfo",
+                     "apps/dashboard/.tsbuildinfo"):
+            with self.subTest(name=name):
+                self.assertEqual((excluded[name].scope_class.value, excluded[name].reason.value,
+                                  excluded[name].is_directory),
+                                 ("GENERATED", "EXCLUDED_DEFAULT_GENERATED", False))
+        self.assertEqual({a.path for a in result.artifacts},
+                         {"foo.ts", "foo.tsx", "foo.js", "foo.jsx",
+                          "directory.tsbuildinfo/real.ts"})
+        self.assertEqual(result.completeness, ScanCompleteness.COMPLETE)
+        self.assertEqual(result.summary.stats.files_excluded, 3)
+
+    @unittest.skipUnless(os.name == "nt", "Windows case-insensitive scope policy")
+    def test_typescript_build_metadata_windows_casefold(self):
+        self.write("FOO.TSBUILDINFO")
+        result = self.scan()
+        self.assertEqual([(x.path, x.reason.value) for x in result.exclusions],
+                         [("FOO.TSBUILDINFO", "EXCLUDED_DEFAULT_GENERATED")])
+        self.assertEqual(result.artifacts, ())
+
+    def test_tsbuildinfo_gitignore_cannot_define_or_negate_default_scope(self):
+        self.write("foo.tsbuildinfo")
+        for contents in (None, "*.tsbuildinfo\n", "!foo.tsbuildinfo\n"):
+            with self.subTest(gitignore=contents):
+                if contents is not None:
+                    self.write(".gitignore", contents)
+                for respect_gitignore in (False, True):
+                    result = self.scan(DiscoveryPolicy(respect_gitignore=respect_gitignore))
+                    entry = next(x for x in result.exclusions if x.path == "foo.tsbuildinfo")
+                    self.assertEqual((entry.scope_class.value, entry.reason.value),
+                                     ("GENERATED", "EXCLUDED_DEFAULT_GENERATED"))
+                    self.assertNotIn("foo.tsbuildinfo", {x.path for x in result.artifacts})
+                    self.assertEqual(result.completeness, ScanCompleteness.COMPLETE)
+
+    def test_tsbuildinfo_trusted_include_reopens_only_named_file(self):
+        self.write("foo.tsbuildinfo")
+        self.write("other.tsbuildinfo")
+        result = self.scan(DiscoveryPolicy(include=("foo.tsbuildinfo",)))
+        self.assertEqual({x.path for x in result.artifacts}, {"foo.tsbuildinfo"})
+        self.assertEqual({x.path for x in result.exclusions}, {"other.tsbuildinfo"})
+
+    def test_existing_default_directory_classes_remain(self):
+        expected = {
+            ".git": "GENERATED", ".venv": "ENVIRONMENT", "venv": "ENVIRONMENT",
+            "env": "ENVIRONMENT", "__pycache__": "CACHE", ".pytest_cache": "CACHE",
+            ".mypy_cache": "CACHE", ".ruff_cache": "CACHE", ".uv-cache": "CACHE",
+            "node_modules": "DEPENDENCY_VENDOR", "dist": "BUILD_OUTPUT",
+            "build": "BUILD_OUTPUT", "out": "BUILD_OUTPUT",
+        }
+        policy = DiscoveryPolicy()
+        for directory, scope_class in expected.items():
+            with self.subTest(directory=directory):
+                classification = policy.exclusion(f"nested/{directory}", is_directory=True)
+                self.assertIsNotNone(classification)
+                self.assertEqual(classification[0].value, scope_class)
+
+    def test_long_tsbuildinfo_never_consumes_secret_budget_or_partial_coverage(self):
+        self.write("foo.tsbuildinfo", "x" * (1024 * 1024 + 256) + "\n")
+        report = ScanOrchestrator().run_scan(
+            ScanRequest(self.root, AuditConfig(), ScanProfile.STANDARD, True, False))
+        view = json.loads(json_report.render(report))
+        entry = next(x for x in view["discovery"]["scope"]["entries"]
+                     if x["path"] == "foo.tsbuildinfo")
+        self.assertEqual(entry, {"path": "foo.tsbuildinfo", "class": "GENERATED",
+                                 "reason": "EXCLUDED_DEFAULT_GENERATED", "is_directory": False})
+        self.assertEqual(view["discovery"]["admitted_files"], 0)
+        self.assertEqual(view["discovery"]["skipped_files"], 0)
+        for scanner in view["scanners"]:
+            if scanner["id"] in {"secrets", "sast.python", "behavior.static"}:
+                self.assertEqual(scanner["artifacts_scanned"], 0)
+                if scanner["id"] == "secrets":
+                    self.assertEqual(scanner["large_text"]["large_text_files_scanned"], 0)
+                    self.assertEqual(scanner["large_text"]["large_text_bytes_scanned"], 0)
+        self.assertEqual(view["coverage"]["overall"], "COMPLETE")
+        self.assertEqual(evaluate_gate(view).status, GateStatus.PASS)
+
+    def test_force_changes_output_overwrite_not_tsbuildinfo_scope(self):
+        self.write("foo.tsbuildinfo")
+        output_directory = tempfile.TemporaryDirectory(prefix="auditor-scope-output-")
+        self.addCleanup(output_directory.cleanup)
+        destination = Path(output_directory.name) / "scope-report.json"
+        args = ["scan", str(self.root), "--offline", "--no-ai", "--format", "json",
+                "--output", str(destination)]
+        self.assertEqual(main(args), 0)
+        with redirect_stderr(StringIO()):
+            self.assertEqual(main(args), 4)
+        self.assertEqual(main([*args, "--force"]), 0)
+        view = json.loads(destination.read_text(encoding="utf-8"))
+        self.assertEqual(view["discovery"]["admitted_files"], 0)
+        self.assertEqual(view["discovery"]["scope"]["entries"][0]["reason"],
+                         "EXCLUDED_DEFAULT_GENERATED")
 
     @unittest.skipUnless(os.name == "nt", "Windows path matching")
     def test_windows_casefold_without_substring_overmatch(self):
