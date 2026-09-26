@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.5 — 2026-09-26
+
+### Changed
+
+- Excluded TypeScript `*.tsbuildinfo` incremental-build metadata by default during Discovery, before downstream scanner admission. The existing structured scope record identifies it as `GENERATED` with reason `EXCLUDED_DEFAULT_GENERATED`.
+- Kept ordinary `.ts`, `.tsx`, `.js`, and `.jsx` files eligible. Built-in file exclusions match file basenames, so a directory with a matching name does not hide its source children.
+
+### Compatibility
+
+- This is a Discovery scope maintenance patch, not a vulnerability fix. Trusted include, optional `.gitignore` handling, and `--force` retain their existing behavior. Secret Scanner limits, JSON schema 1.1, SARIF 2.1.0, and Gate policy 1.0 are unchanged.
+
 ## 1.0.4 — 2026-09-25
 
 ### Changed

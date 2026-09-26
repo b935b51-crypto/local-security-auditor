@@ -1,8 +1,17 @@
 # Project Status
 
 - Last updated: 2026-09-26 (Asia/Taipei)
-- Current milestone: 1.0.5 maintenance scope fix; Phases 0–9 complete and Phase 10 not started
-- Status: **Source-only `*.tsbuildinfo` default generated-metadata exclusion validated; READY FOR 1.0.5 PATCH PREPARATION.** The package version remains 1.0.4, and 1.0.5 artifacts have not been prepared. The existing 1.0.4 release history remains below. No tag or push occurred in this maintenance task.
+- Current milestone: 1.0.5 patch preparation; Phases 0–9 complete and Phase 10 not started
+- Status: **1.0.5 source, deterministic offline builds, clean installs, installed golden behavior, and StockDashboard scope validation verified; READY TO TAG v1.0.5.** No tag or push occurred in this preparation.
+
+## 1.0.5 patch preparation and release readiness
+
+- Starting HEAD `7027bff` on `main`, with no tracked user edits. `pyproject.toml` remains the sole version source and now says 1.0.5; Python requirement remains `>=3.12,<3.13`. This release preparation changes version and release-facing documentation only, with no new detector, Secret limit, Gate, `.gitignore`, `--force`, OSV, Gemini, or Phase 10 behavior change.
+- Python 3.12.11 final offline regression: **254 tests, 248 passed, 0 failed, 6 skipped**. The scanner project's own editable metadata was refreshed offline for source CLI version consistency. Live provider gates remained off.
+- Two offline builds matched filenames, member lists (104 each), sizes, and SHA-256 exactly. Wheel `local_security_auditor-1.0.5-py3-none-any.whl`: 187,958 bytes, SHA-256 `983100b35b7804bdbb18fa2f6eae9c4570fc1df38d45c20b3b79ea019f5b6e8c`. Sdist `local_security_auditor-1.0.5.tar.gz`: 138,229 bytes, SHA-256 `130aaadaa644eb619f36b1fa5c11ce165cbf323ff8dd703f1f5dadc63645ff37`. Archive safety, version, Python range, Gemini extra, entry-point, and packaged `.tsbuildinfo` rule checks passed. Dist artifacts remain ignored and uncommitted.
+- Fresh repo-external Python 3.12.11 installs of core wheel, wheel `[gemini]` (`google-genai==2.25.0`), and sdist passed. Installed CLI reported 1.0.5, retained network/AI/force/config/proposal options, and passed synthetic Discovery, source-file, `.gitignore`, trusted include, long-line budget, report, Gate, and overwrite smoke. JSON 1.1, SARIF 2.1.0, and static zh-TW HTML scope evidence were verified. A Gemini-extra `--offline --ai` scan had AI disabled and zero external provider use.
+- The installed wheel scanned StockDashboard offline/no-AI from an external work directory. Root `tsconfig.tsbuildinfo` was excluded as `GENERATED` / `EXCLUDED_DEFAULT_GENERATED` with a relative file path; 235 `.ts` and 49 `.tsx` artifacts remained admitted. Discovery and Secrets COMPLETE; Dependencies and Overall PARTIAL, Gate BLOCK solely because of `DEPENDENCY_CACHE_STALE`, unrelated to this maintenance exclusion. OSV/Gemini actual requests 0. Target Git HEAD `8cddd199e9d3a46302727a04f24bfa2e9d4350ad` and empty short status matched before and after; only an external temporary report was written.
+- Existing untracked scanner audit reports and `uv.lock` were preserved. No release tag, push, publication, target code execution/import/install, target mutation, or Phase 10 work occurred.
 
 ## 1.0.5 TypeScript build metadata maintenance
 

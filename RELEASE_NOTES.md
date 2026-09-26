@@ -1,3 +1,27 @@
+# Local Security Auditor 1.0.5
+
+**1.0.5 is prepared locally for release validation. No tag, push, or publication is part of this preparation.**
+
+## Discovery scope maintenance
+
+TypeScript `*.tsbuildinfo` files are generated incremental-build metadata and are now excluded by the default generated-artifact policy before downstream scanner admission. The structured scope record uses a target-relative path, `class=GENERATED`, `reason=EXCLUDED_DEFAULT_GENERATED`, and `is_directory=false`. This is an intentional exclusion from the declared default scan scope; it does not assert that the file is safe or free of secrets. Ordinary `.ts`, `.tsx`, `.js`, and `.jsx` source files remain eligible. This change does not claim to exclude every TypeScript-generated file.
+
+An explicit trusted include can reopen a named file under the existing contract. Target `.gitignore` rules do not define or negate this default security-scan exclusion. `--force` still controls report overwrite only. Secret Scanner size, line, match, and time limits are unchanged. JSON schema 1.1, SARIF 2.1.0, Gate policy 1.0, offline-first networking, OSV/Gemini opt-ins, and provider budgets are unchanged. Phase 10 patch application is not included.
+
+This is a scope maintenance patch, not a security vulnerability fix. `COMPLETE` continues to mean complete only within the declared scan scope. Other incomplete coverage, including stale dependency cache data, remains visible and blocks the Gate under existing policy.
+
+Install the locally built 1.0.5 wheel in a clean Python `>=3.12,<3.13` environment. The optional `[gemini]` extra is separate. This document does not imply package-registry publication.
+
+## 1.0.5 validation
+
+Python 3.12.11 full offline regression passed **254 tests: 248 passed, 0 failed, 6 skipped**. Two offline builds produced identical filenames, archive member lists, sizes, and SHA-256 values. Wheel: `local_security_auditor-1.0.5-py3-none-any.whl` (187,958 bytes; SHA-256 `983100b35b7804bdbb18fa2f6eae9c4570fc1df38d45c20b3b79ea019f5b6e8c`). Sdist: `local_security_auditor-1.0.5.tar.gz` (138,229 bytes; SHA-256 `130aaadaa644eb619f36b1fa5c11ce165cbf323ff8dd703f1f5dadc63645ff37`). Archive member, metadata, entry-point, and private-path checks passed.
+
+Fresh repo-external Python 3.12.11 core-wheel, wheel `[gemini]`, and sdist installs passed; each CLI reported 1.0.5. The optional `google-genai` SDK was 2.25.0. Installed-wheel synthetic golden checks covered root/nested/uppercase `*.tsbuildinfo`, ordinary TS/TSX/JS/JSX admission, `.gitignore` absence/ignore/negation, trusted include, existing directory exclusions, long-line metadata isolation, `--force` overwrite-only behavior, JSON 1.1, SARIF 2.1.0, zh-TW HTML scope evidence, and Gate PASS with complete coverage. Default CLI remained offline; explicit `--osv` changed network permission without enabling Gemini. An offline AI-requested scan reported Gemini and OSV unused.
+
+The clean-installed 1.0.5 wheel scanned StockDashboard `--profile standard --offline --no-ai`. Root `tsconfig.tsbuildinfo` appeared in structured scope as `GENERATED / EXCLUDED_DEFAULT_GENERATED`, `is_directory=false`; 235 `.ts` and 49 `.tsx` files remained admitted. Discovery and Secrets were COMPLETE. Dependencies and Overall were PARTIAL and Gate BLOCK due to `DEPENDENCY_CACHE_STALE`, independent of the generated-file exclusion. OSV and Gemini actual use was zero. Target Git HEAD and empty short status matched before and after; the Auditor wrote only a temporary report outside the target.
+
+---
+
 # Local Security Auditor 1.0.4
 
 **1.0.4 is prepared locally and ready for an annotated tag after the release-preparation commit. No 1.0.4 tag, push, or publication is part of this preparation.**
