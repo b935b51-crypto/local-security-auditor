@@ -1,8 +1,17 @@
 # Project Status
 
-- Last updated: 2026-09-26 (Asia/Taipei)
-- Current milestone: 1.0.5 patch preparation; Phases 0–9 complete and Phase 10 not started
-- Status: **1.0.5 source, deterministic offline builds, clean installs, installed golden behavior, and StockDashboard scope validation verified; READY TO TAG v1.0.5.** No tag or push occurred in this preparation.
+- Last updated: 2026-10-02 (Asia/Taipei)
+- Current milestone: v1.0.6 maintenance hardening; package version remains 1.0.5
+- Status: **Pytest temp scope and parse diagnostic paths verified; READY FOR 1.0.6 PATCH PREPARATION.** No version bump, build, tag, push, or Phase 10 work in this maintenance change.
+
+## v1.0.6 maintenance hardening
+
+- Starting HEAD `08abc8b` on `main`, with no tracked user edits. Production changes are limited to adding `.pytest-tmp` to generated-directory defaults and passing the admitted relative path to `SAST_PARSE_FAILED` / `BEHAVIOR_PARSE_FAILED`. Reparse checks, coverage/dependency propagation, Secret limits, Gate, network grants, `.tsbuildinfo`, `.gitignore`, and `--force` semantics are unchanged.
+- Eight new deterministic regressions cover pre-traversal pruning, broken temporary Python, independent parse paths and JSON/HTML privacy (including fake secret material), real Windows junctions, ordinary-source reparse PARTIAL propagation, trusted include, Windows case matching, `.gitignore` variants, and output-only `--force`. Full offline Python 3.12.11 suite: **262 tests, 256 passed, 0 failed, 6 skipped**. Existing exclusions and Gate regressions remain green.
+- Trading Platform source `deep --offline --no-ai` validation on 2026-10-02 excluded both `.pytest-tmp` and `apps/dashboard/.pytest-tmp` as relative directory entries with `GENERATED / EXCLUDED_DEFAULT_GENERATED`. Discovery, Secrets, SAST, and Behavior were COMPLETE, with no reparse or parse-failure diagnostics. Dependencies remained PARTIAL because 341 cache hits were stale (0 fresh; 0 no-data); correlation remained PARTIAL with `CORRELATION_INVALID_FINDING` count 3. Overall PARTIAL / Gate BLOCK was preserved, with 68 Findings (0 Critical, 0 High, 12 Medium, 26 Low, 30 Info). The correlation diagnostic is a separate follow-up candidate; it was not repaired or suppressed in this scope. Dependency propagation was not redesigned.
+- Scan duration was 6.313 seconds. Network sockets were blocked during this offline validation; OSV and Gemini actual use were zero. Target HEAD `9cb212b01b5ca729a0c8483e265f53cd023fd8d2` and empty short status matched before/after. No target execution, import, dependency installation, or mutation occurred. External temporary JSON/HTML reports were removed after Gate and report checks.
+- JSON 1.1, SARIF 2.1.0, and Gate policy 1.0 remain unchanged. Current 1.0.5 dist artifacts predate this source maintenance change; no new artifacts were built. Existing untracked audit reports and `uv.lock` remain preserved.
+- Next: prepare the 1.0.6 patch separately. Do not bump, tag, push, or start Phase 10 without a new instruction.
 
 ## 1.0.5 patch preparation and release readiness
 

@@ -143,7 +143,7 @@ class BehaviorScanner:
                     hits = scan_python_behavior(parsed.tree)
                     long_line = limited = False
                 except PythonParseError:
-                    note("BEHAVIOR_PARSE_FAILED")
+                    note("BEHAVIOR_PARSE_FAILED", artifact.path)
                     skipped += 1
                     state = "partial" if state == "complete" else state
                     continue

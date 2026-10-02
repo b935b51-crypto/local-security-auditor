@@ -136,7 +136,7 @@ class SASTScanner:
                 parsed = parse_python(source, max_nodes=self.limits.max_ast_nodes,
                                       max_depth=self.limits.max_ast_depth)
             except PythonParseError:
-                note("SAST_PARSE_FAILED")
+                note("SAST_PARSE_FAILED", artifact.path)
                 state = "partial" if state == "complete" else state
                 skipped += 1
                 continue

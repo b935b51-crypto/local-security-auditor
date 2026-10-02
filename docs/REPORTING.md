@@ -20,7 +20,11 @@ SAST and behavior JSON scanner summaries add `artifacts_considered`, `artifacts_
 
 Report caps: 1,000 rendered findings, 300 diagnostics, 1,000 groups, 100 attack paths, 1,000 risk assessments, 100 AI reviews, and 8 MiB HTML. Totals and `report_truncated=true` disclose truncation. A report exceeding the HTML byte cap fails output rather than silently dropping sections. Reports are written via a same-directory temporary file, flush/fsync, and atomic link/replace. Existing output requires `--force`; parent and final paths reject symlinks/reparse points, special files, device/UNC forms and Windows reserved names. Filesystem races and unusual remote filesystems remain residual risks; output on an operator-selected path is an explicit operator write.
 
+`SAST_PARSE_FAILED` and `BEHAVIOR_PARSE_FAILED` carry the admitted artifact's target-relative path through the existing diagnostic field and public path sanitization. Different failing files remain separate diagnostic entries, subject to the existing report cap. JSON and HTML show each path with a fixed message; raw parser exceptions and source lines are never serialized. Parse failures still make their scanner coverage incomplete; this adds no schema fields and changes no Gate policy.
+
 ## Project scope visibility (v1 RC hardening)
+
+Default-excluded `.pytest-tmp/` workspaces appear as directory entries (`is_directory=true`) with class `GENERATED` and reason `EXCLUDED_DEFAULT_GENERATED`. Paths are target-relative. Pruning occurs before child traversal and does not itself make coverage incomplete. Links elsewhere retain the existing conservative skip and coverage behavior.
 
 JSON 1.1 adds `discovery.scope` without changing or removing existing fields. It contains intentional excluded directory/file totals, default/user policy totals, a bounded list of root-relative entries with class and reason codes, and `entries_omitted` when more than 200 exclusions occurred. `discovery.skipped_files` and `coverage.skipped_files` continue to mean failed or incomplete file analysis; exclusions are separate and do not by themselves reduce completeness. The console shows exclusion totals; SARIF `run.properties.scanScope` carries the same additive data. Machine codes and field names remain stable.
 

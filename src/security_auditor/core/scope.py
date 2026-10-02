@@ -36,7 +36,7 @@ DEFAULT_SCOPE_DIRECTORIES: dict[ScopeClass, tuple[str, ...]] = {
         "dist", "build", "out", "target", ".next", ".nuxt",
         ".svelte-kit", "coverage", "htmlcov",
     ),
-    ScopeClass.GENERATED: (".git", ".hg", ".svn"),
+    ScopeClass.GENERATED: (".git", ".hg", ".svn", ".pytest-tmp"),
 }
 
 DEFAULT_SCOPE_FILES: dict[ScopeClass, tuple[str, ...]] = {
