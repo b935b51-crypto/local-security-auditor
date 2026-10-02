@@ -1,8 +1,20 @@
 # Project Status
 
 - Last updated: 2026-10-02 (Asia/Taipei)
-- Current milestone: correlation input correctness and layered coverage hardening; Phases 0-9 complete and Phase 10 not started
-- Status: **READY FOR 1.0.7 PATCH PREPARATION.** Source maintenance verified; package version remains 1.0.6. No build, version bump, tag, or push in this task.
+- Current milestone: 1.0.7 patch preparation; Phases 0-9 complete and Phase 10 not started
+- Status: **1.0.7 source, regression, reproducible artifacts, clean installs, installed golden checks, and real offline validation verified; READY TO TAG v1.0.7.** No tag or push performed.
+
+## 1.0.7 patch preparation and release readiness
+
+- Starting hardening HEAD `9fa780c`, main, no tracked user edits. Version is **1.0.7** from pyproject.toml alone; Python requirement remains `>=3.12,<3.13`. Production scanner source and tests are identical to baseline. No new detector, correlation/grouping/validator change, dependency freshness/propagation change, Gate change, or Phase 10 work.
+- Post-bump Python 3.12.11 offline full suite: **274 total, 268 passed, 0 failed, 6 skipped**. Source metadata/CLI, final archive metadata, and all three clean installed CLIs report 1.0.7.
+- Two offline builds matched filenames, 105-member lists per archive, sizes, and hashes exactly. Artifact privacy and runtime source-byte checks passed. Final artifacts remain ignored/uncommitted:
+- `local_security_auditor-1.0.7-py3-none-any.whl`: 191,305 bytes; SHA-256 `d78d4651ae835afb1e3afcad260ba9250eadcc126f63c0b8d098b7ea4f3f0125`.
+- `local_security_auditor-1.0.7.tar.gz`: 140,801 bytes; SHA-256 `aeed8567935570df2496657f1293c730ab7b0c38c9313d3e710d3a7c035f6439`.
+- Core wheel, wheel [gemini] (SDK 2.27.0), and sdist clean installs passed outside the repository. The installed core wheel passed **22 checks, 0 failures/errors/skips**, covering canonical paths in both Secret modes, fingerprint repeatability, invalid attribution/privacy/cap/overflow, actual malformed inventory preservation and Gate BLOCK, CMD/PROCESS/SARIF groups, layered coverage wording, no-overclaim guards, independent provider flags, CLI help, and Gate severity/AI controls. Default tests and release smokes made zero live provider requests. Offline AI stayed disabled. JSON 1.1 / SARIF 2.1.0 / Gate 1.0 unchanged.
+- Trading Platform installed-wheel deep/offline/no-AI: 68 Findings (0 Critical / 0 High / 12 Medium / 26 Low / 30 Info), invalid correlation diagnostics 0. Source components COMPLETE; Dependencies PARTIAL from 341 stale cache hits (0 fresh/no-data), Correlation PARTIAL by existing upstream propagation, Overall PARTIAL, Gate BLOCK/exit20. This truthful unrelated stale condition is not a release blocker. No dependency data refresh.
+- Target HEAD `bbf8afd3c287c0707fbac71d5a61f1d828b0f3cc` and empty short status matched before/after; scan 4.532 seconds. No target execution/import/install/mutation. Temporary validation environments, fixtures, reports, and second-build output removed; pre-existing untracked reports and uv.lock preserved.
+- **READY TO TAG v1.0.7** after the local release-preparation commit. No tag, push, or publication performed. Next: wait for explicit user authorization before annotated tag, inspect its target commit, then push main/tag.
 
 ## Correlation invalid Finding and coverage presentation hardening
 

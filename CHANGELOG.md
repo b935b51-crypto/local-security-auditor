@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.0.7 - 2026-10-02
+
+### Changed
+
+- Normalize Secret Scanner paths before fingerprint and Finding creation in both full-buffer and bounded large-text modes, satisfying the existing correlation input contract.
+- Add safe per-input identity, rule, relative path, line, and bounded-reason attribution to invalid-correlation diagnostics, with a 100-detail cap and explicit omitted counts.
+- Distinguish source/deterministic coverage, dependency vulnerability intelligence, and correlation enrichment in HTML and console, derived from existing coverage components.
+
+### Compatibility
+
+- This is a correlation correctness and reporting clarity patch, not a security vulnerability fix. Genuinely malformed inputs remain rejected; grouping, dependency freshness/propagation, Overall PARTIAL, and Gate BLOCK semantics are unchanged.
+- Fingerprints for previously noncanonical Secret paths may change when the path is normalized. The canonical-path identity algorithm itself is unchanged.
+- JSON schema 1.1, SARIF 2.1.0, Gate policy 1.0, Python `>=3.12,<3.13`, offline-first behavior, and independent OSV/Gemini opt-ins remain unchanged.
+
 ## 1.0.6 - 2026-10-02
 
 ### Changed

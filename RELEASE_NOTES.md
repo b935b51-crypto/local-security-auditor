@@ -1,4 +1,44 @@
-# Local Security Auditor 1.0.6
+# Local Security Auditor 1.0.7
+
+**1.0.7 is verified locally and READY TO TAG after the release-preparation commit. No tag, push, or publication is part of this preparation.**
+
+## Correlation correctness and coverage reporting clarity
+
+A Secret Scanner path-normalization gap could emit otherwise valid findings whose paths did not satisfy the correlation layer's canonical-path invariant. The path is now normalized before fingerprint and Finding creation, in both full-buffer and bounded large-text modes. Three observed findings were rejected by correlation because of this upstream path-format contract violation; they remained in the deterministic finding inventory. This does not establish three new target vulnerabilities or mean correlation was broadly broken.
+
+Genuinely malformed correlation inputs are still rejected and keep correlation coverage incomplete. Diagnostics now carry safe identity, rule, target-relative path where representable, line when known, and a bounded reason. At most 100 detailed attributions are retained, followed by explicit omitted counts. No raw Finding, source, secret evidence, private absolute path, or raw exception is diagnostic material.
+
+HTML and console distinguish Source & deterministic analysis, Dependency vulnerability intelligence, Correlation / attack-path / risk enrichment, and Overall coverage. These views derive from existing `coverage.components[]`; they do not create a second coverage truth. Source inventory completeness is stated only for enabled and supported deterministic analyzers and only when all source components are complete and the public inventory is not truncated or conflicting. Dependency or enrichment gaps remain separately visible.
+
+Overall PARTIAL still means Gate BLOCK. Correlation may remain PARTIAL through existing upstream dependency incompleteness even when no local invalid-input diagnostic exists. AI is advisory and cannot override this result. This is a correctness and reporting patch, not a security vulnerability fix; grouping, validator strictness, dependency cache TTL/freshness, scanner limits, and Gate policy are unchanged. JSON remains 1.1, SARIF 2.1.0, and Gate 1.0.
+
+## Installation, identity compatibility, and limitations
+
+Install `dist/local_security_auditor-1.0.7-py3-none-any.whl` into a clean Python `>=3.12,<3.13` environment. The optional `[gemini]` extra is separate. Scans remain offline by default, `--osv` explicitly permits bounded OSV lookups, and Gemini requires independent opt-in. No package-registry publication is implied.
+
+Fingerprints for previously noncanonical Secret paths may change as their path input is normalized. The canonical-path identity algorithm is unchanged. Correlation completeness does not prove exploitability; source inventory completeness applies only to enabled/supported analyzers within declared scope. Dependency intelligence remains separate, stale-cache semantics are unchanged, and path masking remains heuristic. AI stays advisory. Real symlink/UNC validation, high-DPI/accessibility, standalone EXE/installer, and non-Python deep analysis limitations remain. The default 4 MiB Discovery ceiling is unchanged. Remediation runtime tests remain `NOT_RUN`; full JS/TS SAST and Phase 10 patch application are not implemented.
+
+## 1.0.7 validation
+
+Python 3.12.11 post-bump full offline regression: **274 tests, 268 passed, 0 failed, 6 skipped**. Scanner production source and tests are unchanged from hardening baseline `9fa780c`; only release metadata and documentation changed. The scanner's project-local editable metadata was refreshed offline so source CLI/distribution version also reports 1.0.7.
+
+Two final offline builds matched filenames, all **105 members per archive**, sizes, and SHA-256 exactly. Archive content inspection found no target copies, audit reports, credentials, private host paths, Git internals, temporary workspaces, or unexpected caches. Packaged runtime source bytes matched the checkout.
+
+- `local_security_auditor-1.0.7-py3-none-any.whl`: 191,305 bytes; SHA-256 `d78d4651ae835afb1e3afcad260ba9250eadcc126f63c0b8d098b7ea4f3f0125`.
+- `local_security_auditor-1.0.7.tar.gz`: 140,801 bytes; SHA-256 `aeed8567935570df2496657f1293c730ab7b0c38c9313d3e710d3a7c035f6439`.
+
+Fresh repository-external Python 3.12.11 core-wheel, wheel `[gemini]`, and sdist installs passed import, version, and CLI help checks. All report 1.0.7. The optional SDK was `google-genai==2.27.0`, within the existing constraint; provider import passed and `--offline --ai` remained disabled with zero external requests. Installed CLI retains offline/OSV/AI/force/config/proposal options and rejects `--offline --osv`.
+
+The clean wheel passed **22 installed checks, 0 failures/errors/skips**, without source-path injection. These cover full-buffer and large-text normalized paths before identity/Finding creation, repeatable fingerprints from canonical paths, three real synthetic patterns, strict malformed rejection and public inventory retention, private-data exclusion, the 100-detail cap and counted overflow, CMD/PROCESS grouping and SARIF findingGroupId, all-complete and incomplete-layer wording, missing/disabled/truncated inventory guards, and Gate PASS/BLOCK controls. HIGH deterministic findings, incomplete no-data coverage, and malformed correlation remain blocking; AI cannot unblock them. JSON 1.1, SARIF 2.1.0, static zh-TW HTML/CSP, and Gate 1.0 passed.
+
+The installed wheel scanned Trading Platform using `--profile deep --offline --no-ai`. Findings remained **68** (0 Critical, 0 High, 12 Medium, 26 Low, 30 Info). `CORRELATION_INVALID_FINDING` count was **0**. Discovery/Secrets/SAST/Behavior COMPLETE; Dependencies PARTIAL from `DEPENDENCY_CACHE_STALE` (341 stale hits, 0 fresh, 0 no-data; 343 exact records unassessed for freshness). Correlation PARTIAL through unchanged upstream propagation, with no local correlation diagnostic. Overall PARTIAL / Gate BLOCK, CLI exit 20, remained correct. Source-inventory wording was properly qualified; dependency and enrichment gaps were separately displayed. No cache refresh occurred; OSV batch/detail/total requests and Gemini requests were all zero.
+
+Target HEAD `bbf8afd3c287c0707fbac71d5a61f1d828b0f3cc` and empty Git short status matched before/after. Report scan duration was 4.532 seconds. This snapshot is newer than the earlier maintenance validation; actual results were used. No target execution, import, dependency installation, modification, or cleanup occurred. Temporary environments, fixtures, reports, and second-build output are removed after validation; final artifacts remain ignored in dist. Existing untracked audit reports and uv.lock are preserved.
+
+
+---
+
+# Local Security Auditor 1.0.6 (historical validation)
 
 **1.0.6 is verified locally and READY TO TAG after the release-preparation commit. No tag, push, or publication is part of this preparation.**
 
