@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.6 - 2026-10-02
+
+### Changed
+
+- Excluded `.pytest-tmp` generated test workspaces by default before descending into their children. Structured scope reporting uses `GENERATED / EXCLUDED_DEFAULT_GENERATED` and a target-relative directory path.
+- Added target-relative file paths to `SAST_PARSE_FAILED` and `BEHAVIOR_PARSE_FAILED`, making multiple Python parse failures individually attributable without exposing source text or raw parser exceptions.
+
+### Compatibility
+
+- This is a Discovery scope and diagnostic observability maintenance patch, not a security vulnerability fix. General reparse protection, scanner limits, coverage/dependency propagation, cache freshness, correlation, and Gate behavior are unchanged.
+- JSON schema 1.1, SARIF 2.1.0, Gate policy 1.0, offline-first networking, explicit provider opt-ins, trusted includes, `.gitignore`, and output-only `--force` retain their existing contracts.
+
 ## 1.0.5 — 2026-09-26
 
 ### Changed

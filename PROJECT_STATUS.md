@@ -1,8 +1,19 @@
 # Project Status
 
 - Last updated: 2026-10-02 (Asia/Taipei)
-- Current milestone: v1.0.6 maintenance hardening; package version remains 1.0.5
-- Status: **Pytest temp scope and parse diagnostic paths verified; READY FOR 1.0.6 PATCH PREPARATION.** No version bump, build, tag, push, or Phase 10 work in this maintenance change.
+- Current milestone: 1.0.6 patch preparation; Phases 0-9 complete and Phase 10 not started
+- Status: **1.0.6 source, offline regression/builds, clean installs, installed golden checks, and Trading Platform scope validation verified; READY TO TAG v1.0.6.** No tag or push occurred in this preparation.
+
+## 1.0.6 patch preparation and release readiness
+
+- Starting HEAD `45d67d4` on `main`, with no tracked user edits. Version is now 1.0.6 in the sole source `pyproject.toml`; Python remains `>=3.12,<3.13`. Preparation changed version and release-facing docs only. Scanner production code/tests are identical to the maintenance baseline. Default `.pytest-tmp` exclusion and safe parse paths are the only packaged maintenance fixes.
+- Post-bump Python 3.12.11 offline regression: **262 tests, 256 passed, 0 failed, 6 skipped**. Source CLI/distribution metadata, wheel/sdist metadata, and clean-installed CLIs all report 1.0.6. Two offline builds matched filenames, 104-member lists, bytes, and SHA-256. Archive privacy and packaged-source consistency checks passed.
+- `local_security_auditor-1.0.6-py3-none-any.whl`: 188,022 bytes; SHA-256 `e41feba1ffd15fde51f14061d997733a91749d966559d1fb3982d9026ab2ded7`.
+- `local_security_auditor-1.0.6.tar.gz`: 138,330 bytes; SHA-256 `816cd8cf73171cf0af4cc46ee7273315bef43b4b219d4fed5462cd917352fa4d`.
+- Core wheel, wheel `[gemini]` (SDK 2.25.0), and sdist clean installs passed outside the repository. Installed CLI help/version/import, JSON 1.1, SARIF 2.1.0, zh-TW HTML, and Gate checks passed. The core wheel passed **25 installed golden checks, 0 failures/errors/skips**, including real junction controls, `.pytest-tmp` itself reparse/root protection, individual parse paths and privacy, trusted include, gitignore variants, force overwrite, existing exclusions, and independent network permission controls. Temporary harness assumptions about argparse and AI summary field access were corrected without changing production code.
+- Trading Platform installed-wheel `deep --offline --no-ai` excluded `.pytest-tmp` and `apps/dashboard/.pytest-tmp` with GENERATED directory scope records. Discovery/Secrets/SAST/Behavior COMPLETE; no reparse or parse diagnostics. Dependencies PARTIAL (`DEPENDENCY_CACHE_STALE`, 341 stale hits, 0 fresh, 0 no-data); Correlation PARTIAL (`CORRELATION_INVALID_FINDING`, count 3); Overall PARTIAL / Gate BLOCK. These conditions match baseline and remain unrelated to the two fixes. Findings 0 Critical / 0 High / 12 Medium / 26 Low / 30 Info. OSV/Gemini actual requests 0; no provider refresh occurred.
+- Target HEAD `9cb212b01b5ca729a0c8483e265f53cd023fd8d2` and empty Git short status matched before/after. Report duration 4.516 seconds; CLI wall time 4.796 seconds. No target execution/import/install/modification/cleanup. Temporary environments, fixtures, reports, and second-build output were removed after validation; final dist artifacts remain ignored. Existing untracked audit reports and `uv.lock` are preserved.
+- General reparse policy, Secret limits, completeness/dependency propagation, correlation, Gate 1.0, JSON 1.1, SARIF 2.1.0, provider opt-ins, `.gitignore`, and `--force` behavior remain unchanged. Next: await explicit authorization before creating `v1.0.6` and pushing. Correlation invalid-finding attribution and dependency freshness remain separate follow-up matters.
 
 ## v1.0.6 maintenance hardening
 

@@ -1,3 +1,40 @@
+# Local Security Auditor 1.0.6
+
+**1.0.6 is verified locally and READY TO TAG after the release-preparation commit. No tag, push, or publication is part of this preparation.**
+
+## Discovery scope and diagnostic observability maintenance
+
+Pytest-generated `.pytest-tmp` workspaces are now excluded by the default generated-artifact policy before child directory traversal. Reports identify each retained scope entry with a target-relative path, `class=GENERATED`, `reason=EXCLUDED_DEFAULT_GENERATED`, and `is_directory=true`. This is an intentional scope exclusion, not a claim that excluded files are safe. Ordinary test sources remain eligible.
+
+This does not weaken reparse-point protections. Reparse points encountered in admitted source scope remain skipped conservatively and may still make coverage partial. Safety checks also take priority when `.pytest-tmp` itself is a reparse point. Trusted includes follow the existing contract and cannot bypass that protection. Target `.gitignore` does not define or negate the default exclusion; `--force` remains report overwrite permission only.
+
+Python SAST and static Behavior parse-failure diagnostics now identify the affected target-relative file path. Multiple failing files remain individually attributable in JSON and HTML, subject to existing report caps. Diagnostic paths pass through existing sanitization; messages do not expose absolute host paths, source contents, secrets, or raw parser exception text. Genuine parse failures still make coverage incomplete.
+
+This is a maintenance patch, not a security vulnerability fix. Scanner limits, completeness/dependency propagation, cache TTL and freshness, correlation behavior, and Gate policy are unchanged. JSON remains 1.1, SARIF 2.1.0, and Gate 1.0. Offline-first networking and separate OSV/Gemini opt-ins are preserved. Stale dependency data and `CORRELATION_INVALID_FINDING` remain visible independent coverage conditions; this release does not repair or suppress them.
+
+## Installation and limitations
+
+Install `dist/local_security_auditor-1.0.6-py3-none-any.whl` into a clean Python `>=3.12,<3.13` environment; the optional `[gemini]` extra remains separate. No package-registry publication is implied.
+
+General reparse handling remains conservative, and real symlink/UNC host validation remains limited. Parse-path attribution is not an exploitability assessment. Dependency freshness and correlation invalid-finding attribution remain separate follow-up concerns. Full JS/TS SAST, Phase 10 automatic patch application, standalone EXE/installer, and full GUI high-DPI/accessibility validation are not included. Secret redaction remains heuristic; the default 4 MiB Discovery ceiling is unchanged. Remediation runtime tests remain `NOT_RUN`.
+
+## 1.0.6 validation
+
+Python 3.12.11 full offline source regression after the version bump: **262 tests, 256 passed, 0 failed, 6 skipped**. Two final offline builds matched filenames, all 104 members in each archive, sizes, and SHA-256 exactly. Archive inspection found no target copies, audit reports, credentials, private host paths, Git internals, generated test workspaces, or unexpected caches. Packaged runtime source bytes matched the current checkout.
+
+- `local_security_auditor-1.0.6-py3-none-any.whl`: 188,022 bytes; SHA-256 `e41feba1ffd15fde51f14061d997733a91749d966559d1fb3982d9026ab2ded7`.
+- `local_security_auditor-1.0.6.tar.gz`: 138,330 bytes; SHA-256 `816cd8cf73171cf0af4cc46ee7273315bef43b4b219d4fed5462cd917352fa4d`.
+
+Fresh repo-external Python 3.12.11 core-wheel, wheel `[gemini]`, and sdist installs all passed import, version, and CLI help checks. Every CLI reported 1.0.6; Gemini SDK 2.25.0 imported, and an offline AI-requested smoke remained disabled with no external service use. Installed JSON 1.1, SARIF 2.1.0, static zh-TW HTML, and Gate PASS/BLOCK checks passed. Network/AI/config/force/proposal options remain available.
+
+The clean core wheel passed **25 installed golden checks, 0 failures, 0 skips** from outside the source tree. Tests covered generated scope, real Windows junctions inside excluded temp trees and ordinary source trees, `.pytest-tmp` itself as a junction and selected scan root, trusted include without safety bypass, single/multiple parse paths, source/secret/exception privacy, `.gitignore` variants, output-only `--force`, ordinary source admission, and prior default exclusions. A source reparse or parse failure still yields PARTIAL / Gate BLOCK. No production behavior was changed during release preparation.
+
+The installed wheel scanned Trading Platform with `--profile deep --offline --no-ai`. Both `.pytest-tmp` and `apps/dashboard/.pytest-tmp` were recorded as relative GENERATED directory exclusions; no nested fixture reparse diagnostic or real parse-failure diagnostic appeared. Discovery, Secrets, SAST, and Behavior were COMPLETE. Dependencies were PARTIAL due to `DEPENDENCY_CACHE_STALE` (341 stale hits, 0 fresh hits, 0 no-data), and Correlation was PARTIAL with `CORRELATION_INVALID_FINDING` count 3. Overall PARTIAL / Gate BLOCK was honestly retained. These conditions match the source maintenance baseline and were neither repaired nor suppressed. Findings: 0 Critical, 0 High, 12 Medium, 26 Low, 30 Info. Actual OSV and Gemini requests were zero.
+
+Target HEAD `9cb212b01b5ca729a0c8483e265f53cd023fd8d2` and empty Git short status matched before and after. Reported scan duration was 4.516 seconds (CLI wall time 4.796 seconds). The Auditor did not execute, import, install, modify, delete, or clean target content. No historical parse-failure origin is inferred from the current snapshot.
+
+---
+
 # Local Security Auditor 1.0.5
 
 **1.0.5 is prepared locally for release validation. No tag, push, or publication is part of this preparation.**
