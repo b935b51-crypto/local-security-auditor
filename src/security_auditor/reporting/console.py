@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .models import ScanReport
 from .serialization import report_view
+from .coverage_layers import coverage_layers
 
 
 def render(report: ScanReport, *, top: int = 20, verbose: bool = False) -> str:
@@ -14,7 +15,12 @@ def render(report: ScanReport, *, top: int = 20, verbose: bool = False) -> str:
              f"Profile: {view['scan']['profile']}  Offline: {view['scan']['offline']}",
              f"SCAN COVERAGE: {coverage['overall']}"]
     if coverage["overall"] != "COMPLETE":
-        lines.append("WARNING: Finding counts do not represent complete scan coverage.")
+        lines.append("WARNING: Overall assessment is incomplete; consult the separate coverage layers.")
+    for layer in coverage_layers(coverage, report_truncated=report.report_truncated):
+        lines.extend([f"{layer.key} {layer.status}: {layer.label}", f"  {layer.explanation}"])
+        if layer.reasons:
+            lines.append(f"  Reasons: {', '.join(layer.reasons)}")
+    lines.append(f"OVERALL {coverage['overall']}")
     if report.report_truncated:
         lines.append("WARNING: Report is truncated; totals exceed rendered items.")
     lines.extend(["", "Summary"])
@@ -110,4 +116,9 @@ def render(report: ScanReport, *, top: int = 20, verbose: bool = False) -> str:
     if verbose:
         for diagnostic in view["diagnostics"][:50]:
             lines.append(f"  {diagnostic['source']}:{diagnostic['code']} {diagnostic['path'] or ''}")
+            lines.append(f"    {diagnostic['message']}")
+    else:
+        for diagnostic in view["diagnostics"]:
+            if diagnostic["code"] == "CORRELATION_INVALID_FINDING":
+                lines.append(f"  {diagnostic['code']} {diagnostic['path'] or ''}: {diagnostic['message']}")
     return "\n".join(lines) + "\n"

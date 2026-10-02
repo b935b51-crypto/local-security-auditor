@@ -1,5 +1,7 @@
 # Security Gate policy 1.0
 
+Layered HTML/console coverage is presentation only, derived from existing components. A COMPLETE source/deterministic layer does not override incomplete dependency intelligence or correlation/enrichment. Overall PARTIAL still BLOCKs under policy 1.0, including stale dependency cache or rejected correlation input. Correlation input diagnostics identify pipeline invariants, not target vulnerabilities. No Gate policy or completeness propagation changed with this reporting hardening.
+
 `security-auditor gate REPORT.json --format json` reads a previously produced canonical `ScanReport` JSON **without rescanning a target**. The same `evaluate_gate` function supplies the GUI Gate view. Built-in `SecurityGatePolicy` 1.0 is immutable for the CLI and GUI in this phase; there is no target-local policy file or manual override. A future trusted policy input must remain separate from scanned project data. The report itself is not cryptographically authenticated: operators must protect its provenance.
 
 The gate accepts schema version `1.1` only. It reads at most 16 MiB from a regular, non-reparse file, rejects duplicate JSON keys and invalid UTF-8, and checks required decision and GUI fields, types, counts, roles, paths, item caps, and report truncation consistency. Unknown major and later minor versions fail closed until compatibility is reviewed. A malformed report returns a fixed error code without printing its contents. Gate output uses fixed reasons and finding fingerprints; it does not echo paths, source, AI text, or secrets.

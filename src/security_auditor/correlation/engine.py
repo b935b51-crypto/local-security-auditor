@@ -8,7 +8,7 @@ from typing import Sequence
 
 from security_auditor.core.config import CorrelationLimits
 from security_auditor.core.models import Confidence, Finding, ScannerResult
-from .graph import _State, _TOKEN, _id, _location, _metadata, _node, _valid
+from .graph import _State, _TOKEN, _id, _location, _metadata, _node, _invalid_reason, _invalid_diagnostic
 from .models import (Completeness, CorrelationDiagnostic, CorrelationResult, CorrelationSummary, NodeType, RelationshipType, RiskGraph)
 from .rules import apply_rules
 from .scoring import assess
@@ -31,16 +31,22 @@ class CorrelationEngine:
         if not self.limits.enabled:
             return self._finish(state, (), (), (), raw_count, coverage, Completeness.PARTIAL)
         findings: dict[str, Finding] = {}
+        invalid_diagnostics: list[CorrelationDiagnostic] = []
+        input_ordinal = 0
         for result in results:
             for finding in result.findings:
+                input_ordinal += 1
                 if not state.time_ok():
                     break
                 if len(findings) >= self.limits.max_findings:
                     state.notes["CORRELATION_FINDING_LIMIT"] += 1
                     state.aborted = True
                     break
-                if not _valid(finding):
+                invalid_reason = _invalid_reason(finding)
+                if invalid_reason is not None:
                     state.notes["CORRELATION_INVALID_FINDING"] += 1
+                    if len(invalid_diagnostics) < 100:
+                        invalid_diagnostics.append(_invalid_diagnostic(finding, invalid_reason, input_ordinal))
                     continue
                 prior = findings.get(finding.fingerprint)
                 if prior is not None:
@@ -130,13 +136,21 @@ class CorrelationEngine:
                                            or state.notes["CORRELATION_INVALID_FINDING"]
                                            or state.notes["CORRELATION_FINGERPRINT_COLLISION"]) else
                   Completeness.COMPLETE)
-        return self._finish(state, groups, paths, assessments, raw_count, coverage, status)
+        return self._finish(state, groups, paths, assessments, raw_count, coverage, status, invalid_diagnostics)
 
     @staticmethod
-    def _finish(state, groups, paths, assessments, raw_count, coverage, completeness):
+    def _finish(state, groups, paths, assessments, raw_count, coverage, completeness, invalid_diagnostics=()):
         graph = RiskGraph(tuple(state.nodes[key] for key in sorted(state.nodes)),
                           tuple(state.edges[key] for key in sorted(state.edges)))
-        diagnostics = tuple(CorrelationDiagnostic(code, count) for code, count in sorted(state.notes.items()) if count)
+        diagnostics = list(invalid_diagnostics)
+        for code, count in sorted(state.notes.items()):
+            if code == "CORRELATION_INVALID_FINDING":
+                count -= len(invalid_diagnostics)
+                if count:
+                    diagnostics.append(CorrelationDiagnostic(code, count, message="reason=DETAILS_OMITTED; attribution limit=100"))
+            elif count:
+                diagnostics.append(CorrelationDiagnostic(code, count))
+        diagnostics = tuple(sorted(diagnostics, key=lambda d: (d.code, d.path or "", d.message)))
         summary = CorrelationSummary(completeness, raw_count,
                                      sum(node.kind is NodeType.FINDING for node in graph.nodes),
                                      len(graph.nodes), len(graph.edges), len(groups), len(paths),

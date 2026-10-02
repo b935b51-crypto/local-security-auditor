@@ -205,7 +205,8 @@ def assemble_report(session: ScanSession, discovery: DiscoveryResult,
         diagnostics.extend(ReportDiagnostic(result.scanner.id, d.code, d.message, d.path)
                            for d in result.diagnostics)
     if correlation:
-        diagnostics.extend(ReportDiagnostic("correlation", d.code, d.code.replace("_", " ").lower(), count=d.count)
+        diagnostics.extend(ReportDiagnostic("correlation", d.code, d.message or d.code.replace("_", " ").lower(),
+                                            path=d.path, count=d.count)
                            for d in correlation.summary.diagnostics)
     if ai:
         diagnostics.extend(ReportDiagnostic("ai", d.code, d.code.replace("_", " ").lower(), count=d.count)

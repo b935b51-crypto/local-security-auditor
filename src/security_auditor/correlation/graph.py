@@ -11,7 +11,7 @@ from time import monotonic
 from security_auditor.core.config import CorrelationLimits
 from security_auditor.core.models import (Confidence, DependencyArtifact, Evidence, Finding, Location, Severity, VulnerabilityReference)
 from security_auditor.core.redaction import safe_finding_path
-from .models import NodeType, RelationshipType, RiskEdge, RiskNode
+from .models import CorrelationDiagnostic, NodeType, RelationshipType, RiskEdge, RiskNode
 
 
 _HEX = re.compile(r"^[0-9a-f]{64}$")
@@ -59,10 +59,10 @@ def _location(finding: Finding) -> tuple[str, int, int] | None:
     return path, line, column or 0
 
 
-def _valid(finding: Finding) -> bool:
+def _invalid_reason(finding: Finding) -> str | None:
     if (not isinstance(finding, Finding) or not isinstance(finding.fingerprint, str)
             or not isinstance(finding.location, Location)):
-        return False
+        return "INVALID_IDENTITY_OR_LOCATION_TYPE"
     if (not isinstance(finding.evidence, Evidence) or
             not isinstance(finding.evidence.structured, tuple) or
             len(finding.evidence.structured) > 64 or any(
@@ -70,7 +70,7 @@ def _valid(finding: Finding) -> bool:
                 not isinstance(item[0], str) or not isinstance(item[1], str) or
                 len(item[0]) > 128 or len(item[1]) > 2048
                 for item in finding.evidence.structured)):
-        return False
+        return "INVALID_STRUCTURED_EVIDENCE"
     if finding.dependency is not None and (
             not isinstance(finding.dependency, DependencyArtifact) or
             not isinstance(finding.dependency.ecosystem, str) or
@@ -80,18 +80,50 @@ def _valid(finding: Finding) -> bool:
             (finding.dependency.version is not None and
              (not isinstance(finding.dependency.version, str) or
               _TOKEN.fullmatch(finding.dependency.version) is None))):
-        return False
+        return "INVALID_DEPENDENCY_COORDINATE"
     if finding.vulnerability is not None and (
             not isinstance(finding.vulnerability, VulnerabilityReference) or
             not isinstance(finding.vulnerability.advisory_id, str) or
             _TOKEN.fullmatch(finding.vulnerability.advisory_id) is None):
-        return False
-    return (_HEX.fullmatch(finding.fingerprint) is not None
-            and _location(finding) is not None and isinstance(finding.severity, Severity)
-            and isinstance(finding.confidence, Confidence)
-            and isinstance(finding.rule_id, str) and _TOKEN.fullmatch(finding.rule_id) is not None
-            and isinstance(finding.scanner_id, str) and _TOKEN.fullmatch(finding.scanner_id) is not None
-            and isinstance(finding.category, str) and _TOKEN.fullmatch(finding.category) is not None)
+        return "INVALID_VULNERABILITY_REFERENCE"
+    if _HEX.fullmatch(finding.fingerprint) is None:
+        return "INVALID_FINGERPRINT"
+    if _location(finding) is None:
+        path = finding.location.path
+        if isinstance(path, str) and len(path) <= 512 and safe_finding_path(path) != path:
+            return "UNREDACTED_OR_UNSAFE_PATH"
+        return "INVALID_LOCATION"
+    if not isinstance(finding.severity, Severity) or not isinstance(finding.confidence, Confidence):
+        return "INVALID_SEVERITY_OR_CONFIDENCE"
+    if any(not isinstance(value, str) or _TOKEN.fullmatch(value) is None
+           for value in (finding.rule_id, finding.scanner_id, finding.category)):
+        return "INVALID_RULE_SCANNER_OR_CATEGORY"
+    return None
+
+
+def _valid(finding: Finding) -> bool:
+    return _invalid_reason(finding) is None
+
+
+def _invalid_diagnostic(finding: Finding, reason: str, ordinal: int) -> CorrelationDiagnostic:
+    """Only bounded identities and sanitized relative paths; never evidence or exceptions."""
+    identity, rule, path, line = f"input-{ordinal}", "unavailable", None, None
+    if isinstance(finding, Finding):
+        if isinstance(finding.fingerprint, str) and _HEX.fullmatch(finding.fingerprint):
+            identity = finding.fingerprint
+        if isinstance(finding.rule_id, str) and re.fullmatch(r"[A-Z][A-Z0-9_.]{0,127}", finding.rule_id):
+            rule = safe_finding_path(finding.rule_id)
+        if isinstance(finding.location, Location):
+            candidate = finding.location.path
+            if (isinstance(candidate, str) and 0 < len(candidate) <= 512
+                    and not candidate.startswith("/") and ":" not in candidate and "\\" not in candidate
+                    and not any(part in {"", ".", ".."} for part in candidate.split("/"))):
+                path = safe_finding_path(candidate)
+            value = finding.location.start_line
+            if type(value) is int and 1 <= value <= 10_000_000:
+                line = value
+    message = f"Correlation input rejected (scanner pipeline); finding={identity}; rule={rule}; line={line or 'unknown'}; reason={reason}"
+    return CorrelationDiagnostic("CORRELATION_INVALID_FINDING", 1, path, message)
 
 
 def _node(finding: Finding) -> str:

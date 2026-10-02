@@ -365,6 +365,9 @@ class SecretScanner:
                 note("SECRET_PRIVATE_KEY_UNTERMINATED")
                 state = "partial" if state == "complete" else state
             del source
+            # Apply the shared public path contract before identity and Finding creation.
+            # Matched-value masking above alone does not cover credential-shaped filenames.
+            safe_path = safe_finding_path(safe_path)
             aws_id_lines = [number for number, item in file_candidates if item.rule_id == "SECRET.AWS.ACCESS_KEY"]
             aws_secret_lines = [number for number, item in file_candidates
                                 if item.rule_id == "SECRET.GENERIC.ASSIGNMENT" and item.label == "aws_secret_access_key"]

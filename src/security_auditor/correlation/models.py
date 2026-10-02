@@ -173,6 +173,8 @@ class RiskAssessment:
 class CorrelationDiagnostic:
     code: str
     count: int = 1
+    path: str | None = None
+    message: str = ""
 
 
 @dataclass(frozen=True, slots=True)

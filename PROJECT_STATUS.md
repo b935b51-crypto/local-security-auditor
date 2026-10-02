@@ -1,8 +1,18 @@
 # Project Status
 
 - Last updated: 2026-10-02 (Asia/Taipei)
-- Current milestone: 1.0.6 patch preparation; Phases 0-9 complete and Phase 10 not started
-- Status: **1.0.6 source, offline regression/builds, clean installs, installed golden checks, and Trading Platform scope validation verified; READY TO TAG v1.0.6.** No tag or push occurred in this preparation.
+- Current milestone: correlation input correctness and layered coverage hardening; Phases 0-9 complete and Phase 10 not started
+- Status: **READY FOR 1.0.7 PATCH PREPARATION.** Source maintenance verified; package version remains 1.0.6. No build, version bump, tag, or push in this task.
+
+## Correlation invalid Finding and coverage presentation hardening
+
+- Started from `7f948cf` on `main`, with no tracked user edits. Three Secret Findings failed correlation ingestion because the emitter had not applied shared path redaction before constructing identity/location. Classification: `MALFORMED_FINDING_EMITTED_UPSTREAM`; not a grouping/dedup bug. Safe attribution and old/new fingerprint prefixes are recorded in `docs/CORRELATION.md`. The emitter now normalizes the path before fingerprint/Finding creation for both full-buffer and large-text scans; detection rules, counts, severity, limits, and correlation acceptance criteria are unchanged. Previously noncanonical path fingerprints change; normal canonical fingerprints retain their contract.
+- Invalid correlation inputs still produce PARTIAL and remain visible in the original finding inventory. The first 100 have individual sanitized path/identity/rule/line/bounded-reason diagnostics; counted overflow remains explicit. No raw source/evidence/exception/absolute path is used. Reporting carries attribution through existing diagnostic fields, without changing JSON 1.1.
+- HTML and console derive source, dependency, and correlation coverage layers from existing `coverage.components`. Source inventory completeness is qualified to enabled/supported deterministic analyzers, requires all four source components COMPLETE, and is not claimed for a truncated/conflicting public inventory. AI stays advisory and separate. Overall aggregation, upstream correlation propagation, dependency freshness, Gate 1.0, and SARIF 2.1.0 are unchanged.
+- Twelve new deterministic regressions cover the three real patterns, full-buffer/large-text path contract, actual malformed inputs, separate attribution/privacy/bounded overflow, CMD/PROCESS groups and SARIF references, layer combinations, missing/disabled analyzers, report truncation/conflicts, and Gate BLOCK. Final Python 3.12.11 offline suite: **274 tests, 268 passed, 0 failed, 6 skipped**. `git diff --check` passes. No live provider requests.
+- Trading Platform source `deep --offline --no-ai`: `CORRELATION_INVALID_FINDING` **3 -> 0**, all 68 Findings retained (0 Critical / 0 High / 12 Medium / 26 Low / 30 Info). Discovery/Secrets/SAST/Behavior COMPLETE; Dependencies PARTIAL (`DEPENDENCY_CACHE_STALE`, 341 stale hits, 0 fresh, 0 no-data); Correlation PARTIAL from existing upstream propagation with no local diagnostic; Overall PARTIAL / Gate BLOCK. Actual Gate CLI exit 20; OSV/Gemini requests 0. Source inventory complete does not bypass required dependency/enrichment coverage.
+- Initial diagnosis target HEAD `9cb212b01b5ca729a0c8483e265f53cd023fd8d2` advanced through external work before final validation to `0c5ad0f05d17a7e0ccc9268acaac393491ad96a7`. Each scan's before/after HEAD and empty short status matched. Final report validation took 4.562 seconds; final Gate CLI check scan took 4.735 seconds. No target execution/import/dependency installation/mutation or cache refresh. Temporary reports were removed.
+- Existing ignored 1.0.6 artifacts predate this source maintenance patch and were not rebuilt. Existing untracked audit reports and `uv.lock` are preserved. Next: separately authorize 1.0.7 patch preparation; do not infer release/tag/push authorization from this maintenance work.
 
 ## 1.0.6 patch preparation and release readiness
 

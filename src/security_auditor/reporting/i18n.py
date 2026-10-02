@@ -121,6 +121,7 @@ VALUES = {
 }
 
 DIAGNOSTICS = {
+    "CORRELATION_INVALID_FINDING": "關聯輸入未符合掃描管線契約；這不代表目標有已確認的漏洞。請依下列識別資訊與原因檢查。",
     "DEPENDENCY_OSV_BATCH_BUDGET_REACHED": "OSV 批次查詢已達本次掃描的安全上限。",
     "DEPENDENCY_OSV_DETAIL_BUDGET_REACHED": "OSV 漏洞詳情查詢已達本次掃描的安全上限。",
     "DEPENDENCY_OSV_TOTAL_REQUEST_BUDGET_REACHED": "OSV 請求總數已達本次掃描的安全上限。",

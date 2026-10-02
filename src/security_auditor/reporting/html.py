@@ -7,6 +7,7 @@ from html import escape
 from .i18n import HTML_LOCALE, diagnostic_message, display, message, scanner_label, scope_label
 from .models import ScanReport
 from .serialization import report_view
+from .coverage_layers import coverage_layers
 
 MAX_HTML_BYTES = 8 * 1024 * 1024
 
@@ -58,6 +59,14 @@ def render(report: ScanReport) -> str:
         out.append(f"<p><strong>{_m('truncated_warning')}</strong> "
                    f"{_m('total')}：{_e(counts['total_findings'])}；"
                    f"{_m('rendered')}：{_e(counts['rendered_findings'])}</p>")
+    out.append("<section><h2>分層覆蓋 / Coverage layers</h2>")
+    for layer in coverage_layers(coverage, report_truncated=data["report_truncated"]):
+        out.append(f"<h3>{_e(layer.label_zh)} / {_e(layer.label)}</h3>"
+                   f"<p><code>{_e(layer.key)} {_e(layer.status)}</code></p>"
+                   f"<p>{_e(layer.explanation_zh)}</p>")
+        if layer.reasons:
+            out.append(f"<p><code>{_e(', '.join(layer.reasons))}</code></p>")
+    out.append(f"<p><strong>Overall: {_e(state)}</strong>；分層說明不改變整體覆蓋或 Gate 判定。</p></section>")
     out.append(f"<section><h2>{_m('summary')}</h2><div class=\"counts\">")
     for severity, count in counts["severity"].items():
         out.append(f"<span>{_v(severity)}：{_e(count)}</span>")
@@ -211,6 +220,8 @@ def render(report: ScanReport) -> str:
         path = f"<code>{_e(diagnostic['path'])}</code>：" if diagnostic["path"] else ""
         out.append(f"<p>{path}<code>{_e(diagnostic['code'])}</code> — "
                    f"{_e(diagnostic_message(diagnostic['code'], diagnostic['message']))}</p>")
+        if diagnostic["code"] == "CORRELATION_INVALID_FINDING":
+            out.append(f"<p><code>{_e(diagnostic['message'])}</code></p>")
     scope = data["discovery"]["scope"]
     out.append(f"</section><section><h2>{_m('scope')}</h2><p>{_m('scope_note')}</p>"
                f"<p>{_m('default_exclusions')}：{_v(scope['default_exclusions_applied'])}；"
